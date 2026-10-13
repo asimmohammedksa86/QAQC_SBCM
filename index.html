@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KAFD00330 QA/QC Tracker</title>
+<meta name="description" content="Client-side QA/QC document tracker for Aconex exports — KAFD00330 RO Plant & Collection System">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23009CA8'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  // Apply saved / OS theme before paint to avoid a flash
+  (function () {
+    try {
+      var t = localStorage.getItem('kafdqc.theme');
+      var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (dark) document.documentElement.classList.add('dark');
+    } catch (e) {}
+  })();
+</script>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          brand: { DEFAULT: '#009CA8', 50: '#e6f7f8', 100: '#c2ecef', 200: '#8ad9df', 300: '#4fc4cd', 400: '#1fb0bb', 500: '#009CA8', 600: '#00858f', 700: '#006b73', 800: '#005158', 900: '#003a3f' },
+          ink: { 950: '#0b1214', 900: '#111a1d', 850: '#162125', 800: '#1c282c', 700: '#2a383d' }
+        },
+        fontFamily: {
+          sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Consolas', 'monospace']
+        }
+      }
+    }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root { --brand: #009CA8; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { font-family: Inter, system-ui, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+  .dark .card { background: #111a1d; border-color: #24333a; }
+  .kpi { position: relative; overflow: hidden; }
+  .kpi::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--brand); }
+  .kpi.is-alert::before { background: #e34948; }
+  .kpi.is-warn::before { background: #eda100; }
+  .kpi.is-click { cursor: pointer; transition: box-shadow .15s, transform .15s, border-color .15s; }
+  .kpi.is-click:hover { border-color: var(--brand); box-shadow: 0 6px 18px -8px rgba(0,156,168,.45); }
+  .kpi.is-click:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .navbtn[aria-current="page"] { background: var(--brand); color: #fff; }
+  .navbtn[aria-current="page"] .navcount { background: rgba(255,255,255,.22); color: #fff; }
+  .btn { display: inline-flex; align-items: center; gap: .4rem; border-radius: 8px; padding: .5rem .85rem; font-size: .875rem; font-weight: 600; transition: background .15s, opacity .15s; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: #00858f; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+  .btn-ghost { border: 1px solid #cbd5e1; color: #334155; background: transparent; }
+  .btn-ghost:hover { border-color: var(--brand); color: var(--brand); }
+  .dark .btn-ghost { border-color: #2f4148; color: #cbd5e1; }
+  .dark .btn-ghost:hover { border-color: var(--brand); color: #5fd0d9; }
+  .btn-danger { border: 1px solid #fecaca; color: #b91c1c; }
+  .btn-danger:hover { background: #fef2f2; }
+  .dark .btn-danger { border-color: #7f1d1d; color: #fca5a5; }
+  .dark .btn-danger:hover { background: #2a1414; }
+  .field { border: 1px solid #cbd5e1; border-radius: 8px; padding: .45rem .65rem; font-size: .875rem; background: #fff; color: #0f172a; min-width: 0; }
+  .field:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(0,156,168,.18); }
+  .dark .field { background: #0b1214; border-color: #2f4148; color: #e2e8f0; color-scheme: dark; }
+  .chk { width: 1.1rem; height: 1.1rem; accent-color: var(--brand); flex: none; margin-top: .15rem; }
+  .badge { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; font-size: .75rem; font-weight: 600; padding: .15rem .5rem; border-radius: 999px; background: #f1f5f9; color: #334155; }
+  .dark .badge { background: #1c282c; color: #cbd5e1; }
+  .badge i { width: .55rem; height: .55rem; border-radius: 999px; display: inline-block; flex: none; }
+  .tbl th { position: sticky; top: 0; z-index: 1; }
+  .tbl tbody tr.is-link { cursor: pointer; }
+  .tbl tbody tr.is-link:hover { background: rgba(0,156,168,.06); }
+  .tbl tbody tr.is-d { opacity: .55; }
+  .tbl tbody tr.is-d td.docno { text-decoration: line-through; }
+  .scroll-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 6px; }
+  .legend-btn[aria-pressed="true"] { background: rgba(0,156,168,.12); outline: 1px solid var(--brand); }
+  .dropzone.is-over { border-color: var(--brand); background: rgba(0,156,168,.06); }
+  .bar-track { background: #e2e8f0; }
+  .dark .bar-track { background: #24333a; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-ink-950 dark:text-slate-100 min-h-screen antialiased">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar (desktop) -->
+  <aside class="hidden lg:flex w-64 shrink-0 flex-col border-r border-slate-200 dark:border-ink-700 bg-white dark:bg-ink-900 sticky top-0 h-screen">
+    <div class="px-5 py-5 border-b border-slate-200 dark:border-ink-700">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-lg bg-brand flex items-center justify-center text-white font-bold text-sm tracking-tight">QC</div>
+        <div class="min-w-0">
+          <div class="font-semibold leading-tight">KAFD00330</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 leading-tight">RO Plant · QA/QC Tracker</div>
+        </div>
+      </div>
+    </div>
+    <nav id="nav-side" class="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Sections"></nav>
+    <div id="side-meta" class="p-4 border-t border-slate-200 dark:border-ink-700 text-xs text-slate-500 dark:text-slate-400 space-y-1"></div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="sticky top-0 z-30 bg-white/90 dark:bg-ink-900/90 backdrop-blur border-b border-slate-200 dark:border-ink-700">
+      <div class="px-4 lg:px-8 py-3 flex items-center gap-3">
+        <div class="lg:hidden h-9 w-9 rounded-lg bg-brand flex items-center justify-center text-white font-bold text-xs shrink-0">QC</div>
+        <div class="min-w-0 flex-1">
+          <h1 class="font-semibold text-base sm:text-lg leading-tight truncate">QA/QC Document Dashboard <span class="text-brand">· KAFD00330</span></h1>
+          <div class="flex items-center gap-2 min-w-0 mt-0.5"><span id="hdr-sync" class="inline-flex min-w-0"></span><p id="hdr-meta" class="hidden md:block text-xs text-slate-500 dark:text-slate-400 truncate">No dataset loaded</p></div>
+        </div>
+        <span id="hdr-stale" class="hidden md:inline-flex"></span>
+        <button id="syncBtn" class="btn btn-ghost !px-2.5" title="Check for newly published data" aria-label="Refresh shared data">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg>
+        </button>
+        <button id="themeBtn" class="btn btn-ghost !px-2.5" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+          <svg id="ico-sun" class="h-4 w-4 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg id="ico-moon" class="h-4 w-4 dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </div>
+      <nav id="nav-top" class="lg:hidden flex overflow-x-auto scroll-thin gap-1 px-4 pb-2" aria-label="Sections"></nav>
+    </header>
+
+    <main class="px-4 lg:px-8 py-6 space-y-6 w-full max-w-[1600px] mx-auto">
+      <section id="kpis" aria-label="Project-wide KPIs"></section>
+      <section id="view"></section>
+    </main>
+    <footer class="px-4 lg:px-8 pb-6 text-[11px] text-slate-400 dark:text-slate-500 max-w-[1600px] mx-auto w-full">
+      Excel exports are parsed in the uploader's browser; the cleaned register is published to <span class="font-mono">data.json</span> in the GitHub repository and shown to every visitor. RESERVED rows are removed on import; Code-D records are excluded from KPIs, RFT and charts.
+    </footer>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm"></div>
+
+<script>
+'use strict';
+/* =========================================================================
+   CONFIG
+   ========================================================================= */
+const BRAND = '#009CA8';
+const DEFAULT_PIN = 'QAQC2026';
+const REQUIRED = ['IRE', 'MIR', 'PQD', 'MAR', 'MES', 'ITP', 'SOR', 'NCR'];
+const LS = { data: 'kafdqc.data.v1', ncr: 'kafdqc.ncr.v1', settings: 'kafdqc.settings.v1', theme: 'kafdqc.theme', ui: 'kafdqc.ui.v1', gh: 'kafdqc.github.v1' };
+const SS_UNLOCK = 'kafdqc.unlocked';
+
+const TYPE_NAMES = { IRE: 'Inspection Request', MIR: 'Material Inspection Request', PQD: 'Pre-Qualification', MAR: 'Material Approval Request', MES: 'Method Statement', ITP: 'Inspection & Test Plan', SOR: 'Site Observation Report', NCR: 'Non Conformance Report', RPT: 'Report', PRC: 'Procedure' };
+const TYPE_CODES = { 'inspection request': 'IRE', 'material inspection request': 'MIR', 'pre-qualification': 'PQD', 'prequalification': 'PQD', 'material approval request': 'MAR', 'method statement': 'MES', 'inspection & test plan': 'ITP', 'inspection and test plan': 'ITP', 'site observation report': 'SOR', 'site observation': 'SOR', 'non conformance report': 'NCR', 'non-conformance report': 'NCR', 'report': 'RPT', 'procedure': 'PRC' };
+const CAT_OF = { PQD: 'pqd', MAR: 'pqd', IRE: 'insp', MIR: 'insp', MES: 'mes', ITP: 'mes', SOR: 'nc', NCR: 'nc' };
+
+const ICONS = {
+  pqd: '<path d="M9 12h6M9 16h6M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/>',
+  insp: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.3-4.3M8.5 11l1.8 1.8 3.2-3.3"/>',
+  mes: '<path d="M4 6h16M4 12h10M4 18h7"/><path d="M15 17l2 2 4-4"/>',
+  nc: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
+  oth: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/>',
+  up: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+};
+const TABS = [
+  { id: 'pqd', short: 'PQD/MAR', label: 'PQD / MAR', title: 'PQD / MAR', sub: 'Pre-Qualification Documents & Material Approval Requests', types: ['PQD', 'MAR'] },
+  { id: 'insp', short: 'Inspection', label: 'Inspection', title: 'Inspection', sub: 'Inspection Requests (IRE) & Material Inspection Requests (MIR)', types: ['IRE', 'MIR'] },
+  { id: 'mes', short: 'MES/ITP', label: 'MES / ITP', title: 'MES / ITP', sub: 'Method Statements & Inspection and Test Plans — incl. Right First Time (RFT)', types: ['MES', 'ITP'] },
+  { id: 'nc', short: 'SOR/NCR', label: 'Non Conformity', title: 'Non Conformity', sub: 'Site Observation Reports (SOR) & Non Conformance Reports (NCR) — corrective-action date tracker', types: ['SOR', 'NCR'] },
+  { id: 'oth', short: 'Others', label: 'Others', title: 'Others', sub: 'Reports, Procedures and any other / future document types', types: null },
+  { id: 'up', label: 'Data Upload & Security', title: 'Data Upload & Security', sub: 'PIN-protected import of Aconex Excel exports', types: null }
+];
+const CODE_ORDER = ['A', 'B', 'C', 'E', 'Info', 'Pending', 'Open', 'Closed'];
+const CODE_LABEL = { A: 'A – Approved', B: 'B – Approved w/ Comments', C: 'C – Revise & Resubmit', E: 'E – Information Only', Info: 'For Information', Pending: 'Under Review', Open: 'Open', Closed: 'Closed', D: 'D – Rejected (excluded)' };
+const CA_STEPS = ['Not started', 'In progress', 'Response submitted', 'Verified'];
+
+/* =========================================================================
+   STORAGE
+   ========================================================================= */
+function lsGet(k, fb) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } }
+function lsSet(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+  catch (e) { toast('Could not save to browser storage (' + (e.name || 'error') + '). Data is kept for this session only.', 'error'); return false; }
+}
+function ssGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+function ssSet(k, v) { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch (e) {} }
+
+let DATA = null;                          // { meta, records } — loaded from cache / data.json
+let NCR = {};                             // shared SOR/NCR tracker { [docNo]: { due, ca, note } }
+let SETTINGS = Object.assign({ pinHash: null, closureDays: 15, rftTarget: 90 }, lsGet(LS.settings, {}));
+let UNLOCKED = ssGet(SS_UNLOCK) === '1';
+let PENDING_IMPORT = null;
+let CHECKS = [false, false, false];
+
+const defaultFilter = () => ({ q: '', type: '', disc: '', code: '', showD: false, sort: 'no', dir: 1, page: 1, size: 25 });
+const UI = Object.assign({ tab: 'pqd', f: {} }, lsGet(LS.ui, {}));
+TABS.forEach(t => { UI.f[t.id] = Object.assign(defaultFilter(), (UI.f && UI.f[t.id]) || {}, { page: 1 }); });
+if (!TABS.some(t => t.id === UI.tab)) UI.tab = 'pqd';
+function saveUI() { lsSet(LS.ui, { tab: UI.tab, f: Object.fromEntries(Object.entries(UI.f).map(([k, v]) => [k, { size: v.size, showD: v.showD, sort: v.sort, dir: v.dir }])) }); }
+
+/* =========================================================================
+   HELPERS
+   ========================================================================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = s => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+const pad = n => String(n).padStart(2, '0');
+const isDark = () => document.documentElement.classList.contains('dark');
+const fmtN = n => (n ?? 0).toLocaleString('en-US');
+const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : null;
+function todayISO() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function isoToDate(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
+function addDays(iso, n) { if (!iso) return null; const d = isoToDate(iso); d.setDate(d.getDate() + Number(n || 0)); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function daysBetween(a, b) { if (!a || !b) return null; return Math.round((isoToDate(b) - isoToDate(a)) / 86400000); }
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function fmtDate(iso) { if (!iso) return '—'; const [y, m, d] = iso.split('-'); return d + ' ' + MONTHS[+m - 1] + ' ' + y; }
+function countBy(list, fn) { const o = {}; for (const x of list) { const k = fn(x); o[k] = (o[k] || 0) + 1; } return o; }
+function safeUrl(u) { u = String(u || '').trim(); return /^https?:\/\//i.test(u) ? u : ''; }
+
+function toast(msg, kind) {
+  const el = document.createElement('div');
+  const tone = kind === 'error' ? 'border-red-300 dark:border-red-800' : kind === 'warn' ? 'border-amber-300 dark:border-amber-700' : 'border-brand';
+  el.className = 'card shadow-lg px-4 py-3 text-sm border-l-4 ' + tone;
+  el.setAttribute('role', 'status');
+  el.textContent = msg;
+  $('#toast').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 4200);
+}
+
+function codeColors() {
+  return isDark()
+    ? { A: '#009ca8', B: '#48c7d1', C: '#c98500', E: '#9085e9', Info: '#9085e9', Pending: '#7a8494', Open: '#e66767', Closed: '#48c7d1', D: '#64748b' }
+    : { A: '#005f67', B: '#009CA8', C: '#eda100', E: '#6250d6', Info: '#6250d6', Pending: '#8b95a5', Open: '#e34948', Closed: '#009CA8', D: '#94a3b8' };
+}
+function themeTokens() {
+  return isDark()
+    ? { surface: '#111a1d', text: '#e2e8f0', text2: '#94a3b8', grid: 'rgba(148,163,184,.14)', brand: '#1fb0bb' }
+    : { surface: '#ffffff', text: '#0f172a', text2: '#64748b', grid: 'rgba(100,116,139,.14)', brand: BRAND };
+}
+function codeBadge(code, isD) {
+  const c = codeColors();
+  const k = isD ? 'D' : code;
+  const txt = isD ? 'D (excl.)' : ({ Pending: 'Under review', Info: 'Info' }[code] || code);
+  return '<span class="badge" title="' + esc(CODE_LABEL[k] || k) + '"><i style="background:' + (c[k] || '#94a3b8') + '"></i>' + esc(txt) + '</span>';
+}
+
+async function hashPin(p) {
+  try {
+    if (window.crypto && crypto.subtle) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('kafdqc|' + p));
+      return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch (e) {}
+  let h = 0x811c9dc5; const s = 'kafdqc|' + p;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return 'fnv:' + h.toString(16);
+}
+async function checkPin(p) {
+  const h = await hashPin(p);
+  if (SETTINGS.pinHash && SETTINGS.pinHash.split(':')[0] === h.split(':')[0]) return h === SETTINGS.pinHash;
+  return p === DEFAULT_PIN && !SETTINGS.pinHash;
+}
+
+/* =========================================================================
+   PARSING (SheetJS) — RESERVED removed, Code-D flagged
+   ========================================================================= */
+const COLS = {
+  no: ['document no', 'document no.', 'document number', 'doc no', 'doc no.', 'doc. no.', 'document #', 'document ref'],
+  title: ['title', 'document title', 'description', 'subject'],
+  desc: ['description'],
+  rev: ['revision', 'rev', 'rev.'],
+  status: ['status', 'document status'],
+  review: ['review status', 'approval code', 'approval status', 'code'],
+  disc: ['discipline'],
+  revDate: ['revision date', 'rev date', 'rev. date'],
+  type: ['type', 'document type'],
+  transmittal: ['transmittal in', 'transmittal'],
+  issuedTo: ['issued to'],
+  area: ['area / zone', 'area/zone', 'area', 'zone'],
+  created: ['date created', 'created date', 'created on'],
+  modified: ['date modified', 'modified date'],
+  by: ['created by', 'originator'],
+  url: ['hyperlink', 'link', 'url', 'aconex link'],
+  comments: ['comments']
+};
+function mapHeader(row) {
+  const cells = row.map(norm); const idx = {};
+  for (const [k, aliases] of Object.entries(COLS)) {
+    for (const a of aliases) { const i = cells.indexOf(a); if (i >= 0) { idx[k] = i; break; } }
+  }
+  if (idx.desc === idx.title) delete idx.desc;
+  return idx;
+}
+function toISO(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date && !isNaN(v)) return v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate());
+  if (typeof v === 'number' && v > 20000 && v < 80000 && XLSX.SSF) {
+    const p = XLSX.SSF.parse_date_code(v); if (p) return p.y + '-' + pad(p.m) + '-' + pad(p.d);
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return m[1] + '-' + pad(m[2]) + '-' + pad(m[3]);
+  m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/); if (m) return m[3] + '-' + pad(m[2]) + '-' + pad(m[1]); // dd/mm/yyyy
+  const t = Date.parse(s); if (!isNaN(t)) { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  return null;
+}
+const RE_CODE = /^\s*(?:code[\s\-_]*)?([A-E])\s*(?:[-–—:.)]|$)/i;
+const RE_CODE_D = /\bcode[\s\-_]*d\b/i;
+function classify(status, review) {
+  const s = String(status ?? '').trim(), r = String(review ?? '').trim();
+  let code = null;
+  for (const v of [r, s]) { const m = v.match(RE_CODE); if (m) { code = m[1].toUpperCase(); break; } }
+  const isD = code === 'D' || RE_CODE_D.test(s) || RE_CODE_D.test(r);
+  if (!code) {
+    if (/closed/i.test(s)) code = 'Closed';
+    else if (/^open/i.test(s)) code = 'Open';
+    else if (/information/i.test(s)) code = 'Info';
+    else code = 'Pending';
+  }
+  return { code: isD ? 'D' : code, isD };
+}
+function typeCodeOf(no, type) {
+  const parts = String(no || '').split('-');
+  if (parts.length >= 5) { const c = parts[parts.length - 2].toUpperCase(); if (/^[A-Z]{2,4}$/.test(c)) return c; }
+  return TYPE_CODES[norm(type)] || (type ? String(type).replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() : 'OTH') || 'OTH';
+}
+
+function parseWorkbook(buf, fileName) {
+  const wb = XLSX.read(buf, { type: 'array', cellDates: false }); // keep Excel serials: timezone-proof date conversion
+  const report = { fileName, sheets: [], reserved: [], codeD: 0, read: 0, dupes: 0, generatedOn: null, filterText: null, missing: [], noUrl: 0 };
+  const byNo = new Map();
+  for (const sn of wb.SheetNames) {
+    const ws = wb.Sheets[sn];
+    if (!ws || !ws['!ref']) { report.sheets.push({ name: sn, rows: 0, note: 'empty' }); continue; }
+    const rng = XLSX.utils.decode_range(ws['!ref']);
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
+    // header meta (Aconex "Search Export To Excel" preamble)
+    for (let i = 0; i < Math.min(15, aoa.length); i++) {
+      const row = aoa[i] || [];
+      for (let j = 0; j < row.length - 1; j++) {
+        const k = norm(row[j]);
+        if (k === 'generated on:' && !report.generatedOn) report.generatedOn = String(row[j + 1] ?? '').trim() || null;
+        if (k === 'filter:' && !report.filterText) report.filterText = String(row[j + 1] ?? '').trim() || null;
+      }
+    }
+    let h = -1, idx = null;
+    for (let i = 0; i < Math.min(40, aoa.length); i++) {
+      const m = mapHeader(aoa[i] || []);
+      if (m.no != null && m.title != null) { h = i; idx = m; break; }
+    }
+    if (h < 0) { report.sheets.push({ name: sn, rows: 0, note: 'no "Document No" / "Title" header found — skipped' }); continue; }
+    for (const k of ['status', 'disc', 'type', 'url', 'created', 'rev']) if (idx[k] == null && !report.missing.includes(k)) report.missing.push(k);
+    let n = 0;
+    for (let i = h + 1; i < aoa.length; i++) {
+      const row = aoa[i]; if (!row) continue;
+      const get = k => idx[k] != null ? row[idx[k]] : null;
+      const no = String(get('no') ?? '').trim();
+      const title = String(get('title') ?? '').trim();
+      if (!no && !title) continue;
+      report.read++; n++;
+      // Rule 1: drop RESERVED (title or description), case-insensitive
+      const desc = idx.desc != null ? String(row[idx.desc] ?? '') : '';
+      if (/reserved/i.test(title) || /reserved/i.test(desc)) { report.reserved.push(no || title); continue; }
+      let url = safeUrl(get('url'));
+      if (!url) { // fall back to a cell hyperlink on the doc-no / title cell
+        for (const k of ['no', 'title']) {
+          if (idx[k] == null) continue;
+          const cell = ws[XLSX.utils.encode_cell({ r: rng.s.r + i, c: rng.s.c + idx[k] })];
+          if (cell && cell.l && safeUrl(cell.l.Target)) { url = safeUrl(cell.l.Target); break; }
+        }
+      }
+      if (!url) report.noUrl++;
+      const rev = String(get('rev') ?? '').trim() || 'R00';
+      const revN = parseInt(rev.replace(/\D/g, ''), 10) || 0;
+      const type = String(get('type') ?? '').trim();
+      const t = typeCodeOf(no, type);
+      const disc = String(get('disc') ?? '').trim() || 'Unassigned';
+      const dParts = no.split('-');
+      const dcode = (disc.split(/\s*[-–]\s*/)[0] || '').trim().toUpperCase() || (dParts.length >= 5 ? dParts[3] : 'N/A');
+      const { code, isD } = classify(get('status'), get('review'));
+      if (isD) report.codeD++;
+      const rec = {
+        no, title, rev, revN, t, type: type || TYPE_NAMES[t] || t, cat: CAT_OF[t] || 'oth',
+        status: String(get('status') ?? '').trim(), review: String(get('review') ?? '').trim(),
+        code, isD, disc, dc: dcode,
+        created: toISO(get('created')), revDate: toISO(get('revDate')), modified: toISO(get('modified')),
+        tr: String(get('transmittal') ?? '').trim(), area: String(get('area') ?? '').trim(), url
+      };
+      const key = no || ('#' + sn + ':' + i);
+      const prev = byNo.get(key);
+      if (prev) { report.dupes++; if (rec.revN < prev.revN || (rec.revN === prev.revN && (rec.modified || '') < (prev.modified || ''))) continue; }
+      byNo.set(key, rec);
+    }
+    report.sheets.push({ name: sn, rows: n });
+  }
+  const records = Array.from(byNo.values());
+  for (const r of records) { // slim the stored payload (localStorage quota)
+    delete r.modified;
+    if (r.review === r.status) r.review = '';
+    if (TYPE_NAMES[r.t] === r.type) delete r.type;
+  }
+  report.types = countBy(records, r => r.t);
+  report.validTypes = countBy(records.filter(r => !r.isD), r => r.t);
+  report.total = records.length;
+  report.valid = records.filter(r => !r.isD).length;
+  return { records, report };
+}
+
+/* =========================================================================
+   SHARED DATA — data.json in the GitHub repo is the single source of truth.
+   Viewers read it from the Pages site; editors (PIN + GitHub token) write it
+   through the GitHub Contents API. localStorage is only a cache.
+   ========================================================================= */
+const PACK_COLS = ['no', 'title', 'rev', 't', 'status', 'review', 'disc', 'created', 'revDate', 'tr', 'area', 'url'];
+let GH = Object.assign({ owner: '', repo: '', branch: 'main', path: 'data.json', token: '', name: '' }, lsGet(LS.gh, {}));
+(function guessRepo() { // prefill owner / repo when served from <owner>.github.io/<repo>/
+  if (GH.owner || !/\.github\.io$/i.test(location.hostname)) return;
+  GH.owner = location.hostname.split('.')[0];
+  const seg = location.pathname.split('/').filter(Boolean)[0];
+  GH.repo = seg && !/\.html?$/i.test(seg) ? seg : location.hostname;
+})();
+let PENDING_TRACK = {};                 // tracker edits not yet committed { no: entry | null }
+let SYNC = { state: 'idle', msg: '' };  // idle | pending | saving | ok | error
+let REMOTE_STATE = 'unknown';           // unknown | ok | none | error
+let pushTimer = null, pushing = false;
+const ghReady = () => !!(GH.owner && GH.repo && GH.token);
+const isShared = () => !!(DATA && DATA.meta && DATA.meta.rev && !DATA.meta.localOnly);
+const canEdit = () => !isShared() || (UNLOCKED && ghReady());
+const newRev = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const dataUrl = () => (GH.path || 'data.json').split('/').pop();
+
+function discCode(disc, no) { const p = String(no || '').split('-'); return (String(disc || '').split(/\s*[-–]\s*/)[0] || '').trim().toUpperCase() || (p.length >= 5 ? p[3] : 'N/A'); }
+function enrich(r) {
+  r.no = String(r.no || ''); r.title = String(r.title || ''); r.rev = r.rev || 'R00';
+  r.revN = parseInt(String(r.rev).replace(/\D/g, ''), 10) || 0;
+  r.t = r.t || typeCodeOf(r.no, r.type); r.cat = CAT_OF[r.t] || 'oth';
+  const k = classify(r.status, r.review); r.code = k.code; r.isD = k.isD;
+  r.disc = r.disc || 'Unassigned'; r.dc = discCode(r.disc, r.no);
+  r.created = r.created || null; r.revDate = r.revDate || null; r.area = r.area || ''; r.tr = r.tr || ''; r.url = safeUrl(r.url);
+  return r;
+}
+function packFile(data, tracker, meta) {
+  const RE = /^(https?:\/\/[^?#]+\?trackingid=)(\d+)(&.*)?$/i;
+  const cnt = {};
+  for (const r of data.records) { const m = (r.url || '').match(RE); if (m) { const k = m[1] + '\u0000' + (m[3] || ''); cnt[k] = (cnt[k] || 0) + 1; } }
+  const best = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+  const tpl = best ? best[0].split('\u0000') : null;
+  const rows = data.records.map(r => PACK_COLS.map(c => {
+    let v = r[c] == null ? '' : r[c];
+    if (c === 'url' && tpl) { const m = String(v).match(RE); if (m && m[1] === tpl[0] && (m[3] || '') === tpl[1]) v = '~' + m[2]; }
+    return v;
+  }));
+  return { app: 'kafd-qaqc-tracker', format: 2, meta: Object.assign({}, meta || data.meta), settings: { closureDays: SETTINGS.closureDays, rftTarget: SETTINGS.rftTarget }, tracker: tracker || {}, cols: PACK_COLS, urlTpl: tpl, rows };
+}
+function unpackFile(j) {
+  if (!j || typeof j !== 'object') return null;
+  if (j.format === 2 && Array.isArray(j.rows)) {
+    const cols = Array.isArray(j.cols) ? j.cols : PACK_COLS, tpl = Array.isArray(j.urlTpl) ? j.urlTpl : null;
+    const records = j.rows.map(a => {
+      const r = {}; cols.forEach((c, i) => { r[c] = a[i] == null ? '' : a[i]; });
+      if (tpl && /^~\d+$/.test(r.url)) r.url = tpl[0] + r.url.slice(1) + tpl[1];
+      return enrich(r);
+    });
+    return { data: { meta: j.meta || {}, records }, tracker: j.tracker || {}, settings: j.settings || null };
+  }
+  const d = j.data || (j.records && j.meta ? j : null); // v1 backup / cache
+  if (!d || !Array.isArray(d.records)) return null;
+  return { data: { meta: d.meta || {}, records: d.records.map(enrich) }, tracker: j.ncr || {}, settings: j.settings || null };
+}
+const asPacked = j => { if (!j) return null; if (j.format === 2) return j; const u = unpackFile(j); return u ? packFile(u.data, u.tracker, u.data.meta) : null; };
+
+function saveCache() {
+  if (!DATA) return;
+  lsSet(LS.data, packFile(DATA, NCR, DATA.meta));
+  try { localStorage.removeItem(LS.ncr); } catch (e) {}
+}
+function loadCache() {
+  const u = unpackFile(lsGet(LS.data, null));
+  if (!u) return;
+  DATA = u.data;
+  NCR = Object.assign({}, lsGet(LS.ncr, {}), u.tracker);
+}
+function applyUnpacked(u) {
+  DATA = u.data;
+  NCR = Object.assign({}, u.tracker);
+  for (const [k, v] of Object.entries(PENDING_TRACK)) { if (v) NCR[k] = v; else delete NCR[k]; }
+  if (u.settings) {
+    if (u.settings.closureDays) SETTINGS.closureDays = u.settings.closureDays;
+    if (u.settings.rftTarget) SETTINGS.rftTarget = u.settings.rftTarget;
+    lsSet(LS.settings, SETTINGS);
+  }
+  saveCache();
+}
+
+/* ---------- GitHub Contents API ---------- */
+const ghApi = p => 'https://api.github.com/repos/' + encodeURIComponent(GH.owner) + '/' + encodeURIComponent(GH.repo) + p;
+const ghContents = () => ghApi('/contents/' + GH.path.split('/').map(encodeURIComponent).join('/'));
+function ghFetch(url, opts) {
+  opts = opts || {};
+  return fetch(url, Object.assign({}, opts, { cache: 'no-store', headers: Object.assign({ Authorization: 'Bearer ' + GH.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, opts.headers || {}) }));
+}
+async function ghErr(res) {
+  let m = ''; try { m = (await res.json()).message || ''; } catch (e) {}
+  const hint = res.status === 401 ? ' — token invalid or expired' : (res.status === 403 || res.status === 404) ? ' — check owner / repo / branch and that the token has Contents: Read and write on this repo' : '';
+  return 'GitHub ' + res.status + (m ? ' (' + m + ')' : '') + hint;
+}
+function b64enc(str) { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
+function b64dec(b64) { const s = atob(b64.replace(/\s/g, '')); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return new TextDecoder().decode(b); }
+async function ghGetFile() {
+  const q = '?ref=' + encodeURIComponent(GH.branch || 'main');
+  const res = await ghFetch(ghContents() + q);
+  if (res.status === 404) { // distinguish "no file yet" from "no access"
+    const repo = await ghFetch(ghApi(''));
+    if (!repo.ok) throw new Error(await ghErr(repo));
+    return null;
+  }
+  if (!res.ok) throw new Error(await ghErr(res));
+  const m = await res.json();
+  let text;
+  if (m.content && m.encoding === 'base64') text = b64dec(m.content);
+  else { // > 1 MB: fetch raw
+    const raw = await ghFetch(ghContents() + q, { headers: { Accept: 'application/vnd.github.raw+json' } });
+    if (!raw.ok) throw new Error(await ghErr(raw));
+    text = await raw.text();
+  }
+  return { sha: m.sha, json: JSON.parse(text) };
+}
+async function ghPutFile(json, sha, message) {
+  const body = { message, content: b64enc(JSON.stringify(json)), branch: GH.branch || 'main' };
+  if (sha) body.sha = sha;
+  const res = await ghFetch(ghContents(), { method: 'PUT', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) { const e = new Error(await ghErr(res)); e.status = res.status; throw e; }
+  return res.json();
+}
+/** read-modify-write with retry on concurrent edits */
+async function remoteUpdate(mutate, message) {
+  if (!ghReady()) throw new Error('GitHub publishing is not set up in this browser');
+  for (let attempt = 0; ; attempt++) {
+    const cur = await ghGetFile();
+    const j = mutate(cur ? cur.json : null);
+    j.meta = Object.assign({}, j.meta, { rev: newRev() });
+    delete j.meta.localOnly;
+    try { await ghPutFile(j, cur && cur.sha, message); REMOTE_STATE = 'ok'; return j; }
+    catch (e) { if ((e.status === 409 || e.status === 422) && attempt < 2) continue; throw e; }
+  }
+}
+async function publishDataset(data) {
+  setSync('saving', 'Publishing…');
+  const j = await remoteUpdate(cur => {
+    const prev = asPacked(cur);
+    const tracker = prev ? Object.assign({}, prev.tracker || {}) : Object.assign({}, NCR);
+    for (const [k, v] of Object.entries(PENDING_TRACK)) { if (v) tracker[k] = v; else delete tracker[k]; }
+    const meta = Object.assign({}, data.meta, { publishedAt: new Date().toISOString(), publishedBy: GH.name || '' });
+    const out = packFile(data, tracker, meta);
+    if (prev && prev.settings) out.settings = prev.settings;
+    return out;
+  }, 'Publish Aconex export: ' + (data.meta.fileName || '') + ' (' + (data.meta.valid || 0) + ' valid records)' + (GH.name ? ' — ' + GH.name : ''));
+  PENDING_TRACK = {};
+  applyUnpacked(unpackFile(j));
+  setSync('ok', 'Published');
+  return j;
+}
+function queueTrackerPush() { clearTimeout(pushTimer); setSync('pending', 'Unsaved changes…'); pushTimer = setTimeout(pushTracker, 1200); }
+async function pushTracker() {
+  if (pushing) return queueTrackerPush();
+  const batch = Object.assign({}, PENDING_TRACK);
+  if (!Object.keys(batch).length) return;
+  pushing = true; setSync('saving', 'Saving to GitHub…');
+  try {
+    const j = await remoteUpdate(cur => {
+      const x = asPacked(cur); if (!x) throw new Error('no published data.json — publish a dataset first');
+      const t = Object.assign({}, x.tracker || {});
+      for (const [k, v] of Object.entries(batch)) { if (v) t[k] = v; else delete t[k]; }
+      x.tracker = t;
+      x.meta = Object.assign({}, x.meta, { trackerUpdatedAt: new Date().toISOString(), trackerUpdatedBy: GH.name || '' });
+      return x;
+    }, 'Tracker update: ' + Object.keys(batch).join(', ') + (GH.name ? ' — ' + GH.name : ''));
+    for (const k of Object.keys(batch)) if (PENDING_TRACK[k] === batch[k]) delete PENDING_TRACK[k];
+    applyUnpacked(unpackFile(j));
+    setSync('ok', 'Saved');
+  } catch (e) {
+    setSync('error', e.message); toast('Could not save to GitHub: ' + e.message, 'error');
+  } finally { pushing = false; }
+  if (Object.keys(PENDING_TRACK).length && SYNC.state !== 'error') queueTrackerPush();
+}
+/** pull the published data; returns true when the view changed */
+async function syncFromRemote(opts) {
+  opts = opts || {};
+  let j = null;
+  try {
+    if (ghReady()) { const cur = await ghGetFile(); j = cur && cur.json; }
+    else if (/^https?:$/.test(location.protocol)) {
+      const res = await fetch(dataUrl() + '?t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) j = await res.json(); else if (res.status !== 404) throw new Error('HTTP ' + res.status);
+    } else return false;
+  } catch (e) { REMOTE_STATE = 'error'; if (opts.force) toast('Could not load shared data: ' + e.message, 'error'); renderSyncBadge(); return false; }
+  if (!j) { REMOTE_STATE = 'none'; renderSyncBadge(); return false; }
+  const u = unpackFile(j);
+  if (!u) { REMOTE_STATE = 'error'; renderSyncBadge(); return false; }
+  REMOTE_STATE = 'ok';
+  if (DATA && DATA.meta.localOnly && !opts.force) { renderSyncBadge(); return false; } // keep the user's local preview
+  const rRev = u.data.meta.rev || u.data.meta.importedAt;
+  if (DATA && !DATA.meta.localOnly && rRev && rRev === (DATA.meta.rev || DATA.meta.importedAt)) { renderSyncBadge(); return false; }
+  if (SYNC.state === 'saving' || SYNC.state === 'pending') { renderSyncBadge(); return false; } // our own write is in flight
+  const hadData = !!DATA;
+  applyUnpacked(u);
+  if (hadData && !opts.force) toast('Dashboard updated with the latest published data');
+  const ae = document.activeElement;
+  if (ae && ae.closest && ae.closest('#view') && /INPUT|SELECT|TEXTAREA/.test(ae.tagName)) { renderNav(); renderKPIs(); renderSyncBadge(); }
+  else { const y = window.scrollY; render(); window.scrollTo(0, y); }
+  return true;
+}
+function setSync(state, msg) { SYNC = { state, msg: msg || '' }; renderSyncBadge(); }
+function fmtStamp(iso) { if (!iso) return '—'; const d = new Date(iso); if (isNaN(d)) return '—'; return pad(d.getDate()) + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function renderSyncBadge() {
+  const el = $('#hdr-sync'); if (!el) return;
+  const tones = { teal: ['bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200', BRAND], amber: ['bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200', '#eda100'], red: ['bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300', '#e34948'], slate: ['', '#8b95a5'] };
+  let tone, text, title = '';
+  if (SYNC.state === 'saving') { tone = 'amber'; text = SYNC.msg || 'Saving…'; }
+  else if (SYNC.state === 'pending') { tone = 'amber'; text = 'Unsaved changes…'; }
+  else if (SYNC.state === 'error') { tone = 'red'; text = 'Sync error'; title = SYNC.msg; }
+  else if (!DATA) { tone = 'slate'; text = REMOTE_STATE === 'none' ? 'Nothing published yet' : 'No data'; }
+  else if (DATA.meta.localOnly) { tone = 'amber'; text = 'Local preview — not published'; title = 'Only this browser sees this data. Publish it from Data Upload & Security.'; }
+  else if (!DATA.meta.rev) { tone = 'amber'; text = 'This browser only — not published'; title = 'Publish it from Data Upload & Security so everyone sees it.'; }
+  else {
+    tone = REMOTE_STATE === 'error' ? 'amber' : 'teal';
+    text = 'Shared · ' + fmtStamp(DATA.meta.publishedAt) + (DATA.meta.publishedBy ? ' · ' + DATA.meta.publishedBy : '');
+    title = 'Published data — same for all users.' + (DATA.meta.trackerUpdatedAt ? ' Tracker last updated ' + fmtStamp(DATA.meta.trackerUpdatedAt) + (DATA.meta.trackerUpdatedBy ? ' by ' + DATA.meta.trackerUpdatedBy : '') + '.' : '') + (REMOTE_STATE === 'error' ? ' (Could not reach the server — showing cached copy.)' : '');
+  }
+  el.innerHTML = '<span class="badge max-w-[16rem] sm:max-w-none ' + tones[tone][0] + '" title="' + esc(title) + '"><i style="background:' + tones[tone][1] + '"></i><span class="truncate">' + esc(text) + '</span></span>';
+}
+
+/* =========================================================================
+   METRICS (Code-D always excluded)
+   ========================================================================= */
+const valid = list => list.filter(r => !r.isD);
+const allValid = () => DATA ? valid(DATA.records) : [];
+const ofCat = (cat, list) => (list || allValid()).filter(r => r.cat === cat);
+const isOpen = r => r.code === 'Pending' || r.code === 'C' || r.code === 'Open';
+const isNcOpen = r => r.code === 'Open' || r.code === 'Pending';
+function dueOf(r) { const o = NCR[r.no]; return (o && o.due) || addDays(r.created, SETTINGS.closureDays); }
+function ncState(r) {
+  if (!isNcOpen(r)) return 'closed';
+  const due = dueOf(r); if (!due) return 'ontrack';
+  const d = daysBetween(todayISO(), due);
+  if (d < 0) return 'overdue'; if (d <= 7) return 'due7'; return 'ontrack';
+}
+function rftOf(list) {
+  const reviewed = list.filter(r => r.code === 'A' || r.code === 'B' || r.code === 'C');
+  const ok = reviewed.filter(r => r.revN === 0 && (r.code === 'A' || r.code === 'B'));
+  return { n: ok.length, d: reviewed.length, pct: pct(ok.length, reviewed.length) };
+}
+function stats(list) {
+  const by = countBy(list, r => r.code);
+  return { total: list.length, by, approved: (by.A || 0) + (by.B || 0), pending: by.Pending || 0, c: by.C || 0, open: list.filter(isOpen).length, rft: rftOf(list) };
+}
+
+/* =========================================================================
+   NAV + HEADER
+   ========================================================================= */
+function navCount(id) {
+  if (!DATA || id === 'up') return '';
+  return fmtN(ofCat(id).length);
+}
+function renderNav() {
+  const side = TABS.map(t => {
+    const cur = UI.tab === t.id;
+    const c = navCount(t.id);
+    return '<button class="navbtn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-ink-800" data-tab="' + t.id + '"' + (cur ? ' aria-current="page"' : '') + '>' +
+      '<svg class="h-4.5 w-4.5 h-[18px] w-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + ICONS[t.id] + '</svg>' +
+      '<span class="flex-1 truncate">' + esc(t.label) + '</span>' +
+      (c ? '<span class="navcount num text-[11px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-ink-800 text-slate-500 dark:text-slate-400">' + c + '</span>' : '') + '</button>';
+  }).join('');
+  $('#nav-side').innerHTML = side;
+  $('#nav-top').innerHTML = TABS.map(t => '<button class="navbtn shrink-0 px-3 py-1.5 rounded-full text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-ink-700" data-tab="' + t.id + '"' + (UI.tab === t.id ? ' aria-current="page"' : '') + '>' + esc(t.label) + '</button>').join('');
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab));
+  const act = $('#nav-top [aria-current]'); if (act) act.scrollIntoView({ block: 'nearest', inline: 'center' });
+
+  // header / side meta
+  if (DATA) {
+    const m = DATA.meta;
+    $('#hdr-meta').textContent = 'Aconex export' + (m.generatedOn ? ' · generated ' + m.generatedOn : '') + ' · ' + fmtN(m.valid) + ' valid records';
+    $('#side-meta').innerHTML =
+      '<div class="font-semibold text-slate-600 dark:text-slate-300">Dataset</div>' +
+      '<div class="truncate" title="' + esc(m.fileName) + '">' + esc(m.fileName) + '</div>' +
+      '<div>Imported ' + esc(new Date(m.importedAt).toLocaleString()) + '</div>' +
+      '<div class="pt-1">Excluded: <span class="num">' + fmtN(m.reservedCount) + '</span> RESERVED · <span class="num">' + fmtN(m.codeDCount) + '</span> Code-D</div>';
+    const age = staleDays(m.generatedOn);
+    $('#hdr-stale').innerHTML = age != null && age > 7 ? '<span class="badge !bg-amber-100 !text-amber-800 dark:!bg-amber-900/40 dark:!text-amber-200">Export is ' + age + ' days old</span>' : '';
+  } else {
+    $('#hdr-meta').textContent = 'No dataset loaded — import an Aconex export in “Data Upload & Security”';
+    $('#side-meta').innerHTML = '<div>No dataset loaded.</div>';
+    $('#hdr-stale').innerHTML = '';
+  }
+  renderSyncBadge();
+}
+function staleDays(gen) {
+  if (!gen) return null;
+  const t = Date.parse(String(gen).replace(/^[A-Za-z]+,\s*/, ''));
+  if (isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / 86400000);
+}
+function go(tab, opts) {
+  UI.tab = tab;
+  if (opts && opts.filter) Object.assign(UI.f[tab], opts.filter, { page: 1 });
+  saveUI(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* =========================================================================
+   GLOBAL KPI STRIP
+   ========================================================================= */
+function kpiCard({ label, value, sub, alert, click, id, extra }) {
+  return '<div class="card kpi p-4 sm:p-5 ' + (alert ? 'is-alert ' : '') + (click ? 'is-click' : '') + '"' + (click ? ' tabindex="0" role="button" data-kpi="' + id + '"' : '') + '>' +
+    '<div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">' + label + '</div>' +
+    '<div class="mt-1.5 text-3xl font-bold num ' + (alert ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white') + '">' + value + '</div>' +
+    (sub ? '<div class="mt-1 text-xs text-slate-500 dark:text-slate-400">' + sub + '</div>' : '') + (extra || '') + '</div>';
+}
+function renderKPIs() {
+  const el = $('#kpis');
+  if (!DATA || UI.tab === 'up') { el.innerHTML = ''; el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  const all = allValid();
+  const s = stats(all);
+  const openBy = TABS.filter(t => t.types !== null || t.id === 'oth').filter(t => t.id !== 'up').map(t => {
+    const list = ofCat(t.id); const n = t.id === 'nc' ? list.filter(isNcOpen).length : list.filter(isOpen).length; return { t, n };
+  });
+  const nc = ofCat('nc');
+  const ncrOver = nc.filter(r => r.t === 'NCR' && ncState(r) === 'overdue').length;
+  const sorOver = nc.filter(r => r.t === 'SOR' && ncState(r) === 'overdue').length;
+  const ncrOpen = nc.filter(r => r.t === 'NCR' && isNcOpen(r)).length;
+  const target = SETTINGS.rftTarget;
+  const rp = s.rft.pct;
+  const rftBar = '<div class="mt-2 relative h-1.5 rounded-full bar-track"><div class="h-1.5 rounded-full" style="width:' + (rp || 0) + '%;background:' + BRAND + '"></div>' +
+    '<div class="absolute -top-1 h-3.5 w-0.5 bg-slate-500 dark:bg-slate-300" style="left:' + target + '%" title="Target ' + target + '%"></div></div>';
+  el.innerHTML =
+    '<div class="flex items-baseline justify-between mb-3"><h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Project-wide KPIs</h2>' +
+    '<span class="text-[11px] text-slate-400">Excludes RESERVED &amp; Code-D · click a card to drill in</span></div>' +
+    '<div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">' +
+    kpiCard({ label: 'Total valid documents', value: fmtN(s.total), sub: fmtN(s.approved) + ' approved (A/B) · ' + fmtN(DATA.meta.reservedCount) + ' RESERVED / ' + fmtN(DATA.meta.codeDCount) + ' Code-D excluded', id: 'total' }) +
+    kpiCard({ label: 'Open items', value: fmtN(openBy.reduce((a, b) => a + b.n, 0)), click: true, id: 'open',
+      sub: 'Under review, Code C & open SOR/NCR',
+      extra: '<div class="mt-2 flex flex-wrap gap-1">' + openBy.map(o => '<button class="badge hover:!bg-brand hover:!text-white" data-open="' + o.t.id + '">' + esc(o.t.short) + ' <span class="num">' + o.n + '</span></button>').join('') + '</div>' }) +
+    kpiCard({ label: 'Right First Time', value: rp == null ? '—' : rp.toFixed(1) + '%', click: true, id: 'rft', alert: false,
+      sub: fmtN(s.rft.n) + ' of ' + fmtN(s.rft.d) + ' reviewed approved at R00 · target ' + target + '%', extra: rftBar }) +
+    kpiCard({ label: 'Overdue NCRs', value: fmtN(ncrOver), click: true, id: 'over', alert: ncrOver > 0,
+      sub: fmtN(ncrOpen) + ' NCR open · ' + fmtN(sorOver) + ' SOR overdue' }) +
+    '</div>';
+  el.querySelectorAll('[data-open]').forEach(b => b.onclick = e => { e.stopPropagation(); go(b.dataset.open, { filter: { code: '__open' } }); });
+  el.querySelectorAll('[data-kpi]').forEach(c => {
+    const act = () => {
+      const k = c.dataset.kpi;
+      if (k === 'open') go(UI.tab === 'up' ? 'pqd' : UI.tab, { filter: { code: '__open' } });
+      if (k === 'rft') go('mes');
+      if (k === 'over') go('nc', { filter: { code: '__overdue', type: 'NCR' } });
+    };
+    c.onclick = act; c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } };
+  });
+}
+
+/* =========================================================================
+   DATA TABS
+   ========================================================================= */
+const CH = {};
+function destroyCharts() { for (const k in CH) { try { CH[k].destroy(); } catch (e) {} delete CH[k]; } }
+
+function render() {
+  destroyCharts();
+  renderNav();
+  renderKPIs();
+  if (UI.tab === 'up') return renderUpload();
+  if (!DATA) return renderEmpty();
+  renderDataTab(UI.tab);
+}
+function renderEmpty() {
+  const t = TABS.find(x => x.id === UI.tab);
+  $('#view').innerHTML = '<div class="card p-10 text-center">' +
+    '<div class="mx-auto h-12 w-12 rounded-full bg-brand-50 dark:bg-ink-800 text-brand flex items-center justify-center"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></div>' +
+    '<h2 class="mt-4 text-lg font-semibold">' + esc(t.title) + ' — no data yet</h2>' +
+    '<p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">' + (REMOTE_STATE === 'unknown' ? 'Loading the published data…' : 'Nothing has been published yet. An editor publishes the latest Aconex “Search Export To Excel” file from the secure upload portal, and it then appears here for everyone.') + '</p>' +
+    '<button class="btn btn-primary mt-5" id="goUp">Go to Data Upload &amp; Security</button></div>';
+  $('#goUp').onclick = () => go('up');
+}
+
+function tabKPIs(id, list) {
+  const f = UI.f[id];
+  const card = (label, value, sub, key, alert) => {
+    const active = key && f.code === key;
+    return '<button class="card kpi is-click text-left p-4 ' + (alert === 'warn' ? 'is-warn ' : alert ? 'is-alert ' : '') + (active ? 'ring-2 ring-brand ' : '') + '" data-setcode="' + (key || '') + '">' +
+      '<div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">' + label + '</div>' +
+      '<div class="mt-1 text-2xl font-bold num ' + (alert === 'warn' ? 'text-amber-600 dark:text-amber-400' : alert ? 'text-red-600 dark:text-red-400' : '') + '">' + value + '</div>' +
+      (sub ? '<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">' + sub + '</div>' : '') + '</button>';
+  };
+  const dExcl = DATA.records.filter(r => r.cat === id && r.isD).length;
+  if (id === 'nc') {
+    const st = countBy(list, ncState);
+    const closed = list.filter(r => !isNcOpen(r));
+    const dur = closed.map(r => daysBetween(r.created, r.revDate)).filter(x => x != null && x >= 0);
+    const avg = dur.length ? Math.round(dur.reduce((a, b) => a + b, 0) / dur.length) : null;
+    return '<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">' +
+      card('Total SOR / NCR', fmtN(list.length), (countBy(list, r => r.t).SOR || 0) + ' SOR · ' + (countBy(list, r => r.t).NCR || 0) + ' NCR', '') +
+      card('Open', fmtN(list.filter(isNcOpen).length), 'Corrective action pending', '__open') +
+      card('Overdue', fmtN(st.overdue || 0), 'Past due date', '__overdue', (st.overdue || 0) > 0) +
+      card('Due ≤ 7 days', fmtN(st.due7 || 0), 'Action soon', '__due7') +
+      card('Closed', fmtN(st.closed || 0), pct(st.closed || 0, list.length) + '% close-out rate', 'Closed') +
+      card('Avg. days to close', avg == null ? '—' : avg, 'Created → revision date', '') + '</div>';
+  }
+  const s = stats(list);
+  return '<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">' +
+    card('Total (valid)', fmtN(s.total), dExcl ? fmtN(dExcl) + ' Code-D excluded' : 'No Code-D records', '') +
+    card('Approved A / B', fmtN(s.approved), (pct(s.approved, s.total) ?? 0) + '% of total', '__approved') +
+    card('Under review', fmtN(s.pending), 'Awaiting Engineer response', 'Pending') +
+    card('Revise &amp; resubmit', fmtN(s.c), 'Code C', 'C', s.c > 0 ? 'warn' : false) +
+    card('Open items', fmtN(s.open), 'Under review + Code C', '__open') +
+    card('RFT %', s.rft.pct == null ? '—' : s.rft.pct.toFixed(1) + '%', fmtN(s.rft.n) + '/' + fmtN(s.rft.d) + ' at R00', '__rft') + '</div>';
+}
+
+function rftPanel(list) {
+  const target = SETTINGS.rftTarget;
+  const row = (label, l) => {
+    const r = rftOf(l); const p = r.pct ?? 0; const ok = r.pct != null && r.pct >= target;
+    return '<div><div class="flex items-baseline justify-between text-sm"><span class="font-medium">' + label + '</span>' +
+      '<span class="num"><b>' + (r.pct == null ? '—' : r.pct.toFixed(1) + '%') + '</b> <span class="text-slate-500 dark:text-slate-400 text-xs">(' + r.n + '/' + r.d + ')</span> ' +
+      (r.pct == null ? '' : ok ? '<span class="badge !text-[10px] !py-0">✓ on target</span>' : '<span class="badge !text-[10px] !py-0">▲ below target</span>') + '</span></div>' +
+      '<div class="mt-1.5 relative h-2.5 rounded-full bar-track"><div class="h-2.5 rounded-full" style="width:' + p + '%;background:' + (ok ? BRAND : '#eda100') + '"></div>' +
+      '<div class="absolute -top-1 h-[18px] w-0.5 bg-slate-600 dark:bg-slate-300" style="left:' + target + '%"></div></div></div>';
+  };
+  const revs = countBy(list, r => r.revN >= 3 ? 'R03+' : 'R0' + r.revN);
+  const revKeys = ['R00', 'R01', 'R02', 'R03+'];
+  const maxRev = Math.max(1, ...revKeys.map(k => revs[k] || 0));
+  const byDisc = Object.entries(countBy(list, r => r.dc)).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([dc]) => {
+    const r = rftOf(list.filter(x => x.dc === dc)); return '<tr><td class="py-1 pr-3 font-mono text-xs">' + esc(dc) + '</td><td class="py-1 pr-3 num text-right">' + (r.pct == null ? '—' : r.pct.toFixed(0) + '%') + '</td><td class="py-1 num text-right text-slate-500 dark:text-slate-400">' + r.n + '/' + r.d + '</td></tr>';
+  }).join('');
+  return '<div class="card p-5"><div class="flex items-center justify-between"><h3 class="font-semibold">Right First Time (RFT)</h3><span class="text-xs text-slate-500 dark:text-slate-400">Target ' + target + '% at Rev.00 · Code-D excluded</span></div>' +
+    '<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">RFT = documents approved (Code A/B) at R00 ÷ documents with a review outcome (A/B/C). Items still under review are not counted.</p>' +
+    '<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">' +
+    '<div class="space-y-4 lg:col-span-1">' + row('Method Statements (MES)', list.filter(r => r.t === 'MES')) + row('Inspection & Test Plans (ITP)', list.filter(r => r.t === 'ITP')) + row('Combined MES + ITP', list) + '</div>' +
+    '<div><div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Current revision spread</div>' +
+    revKeys.map(k => '<div class="flex items-center gap-2 text-sm py-1"><span class="w-12 font-mono text-xs">' + k + '</span><div class="flex-1 h-3 rounded bar-track"><div class="h-3 rounded" style="width:' + ((revs[k] || 0) / maxRev * 100) + '%;background:' + (k === 'R00' ? BRAND : '#8b95a5') + '"></div></div><span class="num w-8 text-right">' + (revs[k] || 0) + '</span></div>').join('') + '</div>' +
+    '<div><div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">RFT by discipline</div><table class="w-full text-sm"><tbody>' + byDisc + '</tbody></table></div>' +
+    '</div></div>';
+}
+
+function trackerPanel(list) {
+  const open = list.filter(isNcOpen).map(r => ({ r, due: dueOf(r), d: daysBetween(todayISO(), dueOf(r)) })).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1);
+  const ca = countBy(list.filter(isNcOpen), r => (NCR[r.no] && NCR[r.no].ca) || CA_STEPS[0]);
+  const item = o => {
+    const tone = o.d == null ? '' : o.d < 0 ? 'text-red-600 dark:text-red-400' : o.d <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-brand';
+    const lab = o.d == null ? 'No date' : o.d < 0 ? Math.abs(o.d) + ' d overdue' : o.d === 0 ? 'Due today' : 'in ' + o.d + ' d';
+    return '<li><button class="w-full text-left flex items-center gap-3 py-2 px-2 rounded-md hover:bg-slate-50 dark:hover:bg-ink-800" data-jump="' + esc(o.r.no) + '">' +
+      '<span class="text-sm font-semibold num w-28 shrink-0 whitespace-nowrap ' + tone + '">' + (o.d != null && o.d < 0 ? '● ' : '') + lab + '</span>' +
+      '<span class="min-w-0 flex-1"><span class="block font-mono text-xs truncate">' + esc(o.r.no) + '</span><span class="block text-xs text-slate-500 dark:text-slate-400 truncate">' + esc(o.r.title.replace(/^KAFD00330 RO Plant:\s*/i, '')) + '</span></span>' +
+      '<span class="text-xs text-slate-500 dark:text-slate-400 num shrink-0 hidden sm:inline">' + fmtDate(o.due) + '</span></button></li>';
+  };
+  return '<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">' +
+    '<div class="card p-5 lg:col-span-2"><div class="flex items-center justify-between"><h3 class="font-semibold">Action Date Tracker</h3>' +
+    '<span class="text-xs text-slate-500 dark:text-slate-400">Default due = raised + ' + SETTINGS.closureDays + ' d · edit inline below</span></div>' +
+    (open.length ? '<ul class="mt-2 divide-y divide-slate-100 dark:divide-ink-700 max-h-72 overflow-y-auto scroll-thin">' + open.map(item).join('') + '</ul>' : '<p class="mt-4 text-sm text-slate-500">No open SOR / NCR — all corrective actions closed.</p>') + '</div>' +
+    '<div class="card p-5"><h3 class="font-semibold">Corrective-action progress</h3><p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Open items, by internal CA status</p>' +
+    '<div class="mt-3 space-y-2">' + CA_STEPS.map((s, i) => {
+      const n = ca[s] || 0; const tot = Math.max(1, list.filter(isNcOpen).length);
+      return '<div><div class="flex justify-between text-sm"><span>' + s + '</span><span class="num font-semibold">' + n + '</span></div><div class="h-2 rounded bar-track mt-1"><div class="h-2 rounded" style="width:' + (n / tot * 100) + '%;background:' + ['#8b95a5', '#eda100', BRAND, '#005f67'][i] + '"></div></div></div>';
+    }).join('') + '</div></div></div>';
+}
+
+function renderDataTab(id) {
+  const t = TABS.find(x => x.id === id);
+  const list = ofCat(id);
+  const typesHere = Object.entries(countBy(list, r => r.t)).sort((a, b) => b[1] - a[1]);
+  $('#view').innerHTML =
+    '<div class="space-y-5">' +
+    '<div class="flex flex-wrap items-end justify-between gap-3"><div><h2 class="text-xl font-bold">' + esc(t.title) + '</h2><p class="text-sm text-slate-500 dark:text-slate-400">' + esc(t.sub) + '</p></div>' +
+    '<div class="flex flex-wrap gap-1.5">' + typesHere.map(([k, n]) => '<span class="badge"><b class="font-mono">' + esc(k) + '</b> <span class="num">' + n + '</span></span>').join('') + '</div></div>' +
+    tabKPIs(id, list) +
+    (id === 'mes' ? rftPanel(list) : '') +
+    (id === 'nc' ? trackerPanel(list) : '') +
+    '<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">' +
+    '<div class="card p-5"><h3 class="font-semibold">' + (id === 'nc' ? 'Open vs closed' : 'Approval status') + '</h3><p class="text-xs text-slate-500 dark:text-slate-400">Click a segment or legend row to filter the table</p>' +
+    '<div class="relative h-56 mt-3"><canvas id="ch-status" aria-label="Status breakdown chart" role="img"></canvas></div><div id="lg-status" class="mt-3 space-y-0.5"></div></div>' +
+    '<div class="card p-5"><h3 class="font-semibold">Discipline breakdown</h3><p class="text-xs text-slate-500 dark:text-slate-400">Stacked by status · click a bar to filter</p><div id="wrap-disc" class="relative mt-3"><canvas id="ch-disc" aria-label="Discipline breakdown chart" role="img"></canvas></div></div>' +
+    '<div class="card p-5"><h3 class="font-semibold">' + (id === 'nc' ? 'Raised per month' : 'Submitted per month') + '</h3><p class="text-xs text-slate-500 dark:text-slate-400">By date created · last 12 months</p><div class="relative h-64 mt-3"><canvas id="ch-trend" aria-label="Monthly trend chart" role="img"></canvas></div></div>' +
+    '</div>' +
+    '<div class="card" id="tblcard"></div>' +
+    '</div>';
+  bindTabKPIs(id);
+  if (id === 'nc') document.querySelectorAll('[data-jump]').forEach(b => b.onclick = () => { Object.assign(UI.f.nc, { q: b.dataset.jump, code: '', page: 1 }); renderTable('nc'); $('#tblcard').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  drawCharts(id, list);
+  renderTable(id);
+}
+function bindTabKPIs(id) {
+  document.querySelectorAll('[data-setcode]').forEach(b => b.onclick = () => {
+    const k = b.dataset.setcode; if (!k) return;
+    const f = UI.f[id]; f.code = f.code === k ? '' : k; f.page = 1;
+    renderDataTabKeepScroll(id);
+  });
+}
+function renderDataTabKeepScroll(id) { const y = window.scrollY; destroyCharts(); renderNav(); renderKPIs(); renderDataTab(id); window.scrollTo(0, y); }
+
+/* ---------- Charts ---------- */
+function applyChartDefaults() {
+  const tk = themeTokens();
+  Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = tk.text2;
+  Chart.defaults.borderColor = tk.grid;
+  Chart.defaults.plugins.tooltip.backgroundColor = isDark() ? '#e2e8f0' : '#0f172a';
+  Chart.defaults.plugins.tooltip.titleColor = isDark() ? '#0f172a' : '#fff';
+  Chart.defaults.plugins.tooltip.bodyColor = isDark() ? '#0f172a' : '#fff';
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 6;
+  Chart.defaults.plugins.tooltip.boxPadding = 4;
+}
+const centerText = {
+  id: 'centerText',
+  afterDraw(chart, args, opts) {
+    const { ctx, chartArea } = chart; if (!chartArea) return;
+    const x = (chartArea.left + chartArea.right) / 2, y = (chartArea.top + chartArea.bottom) / 2;
+    const tk = themeTokens();
+    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = tk.text; ctx.font = '700 26px Inter, system-ui'; ctx.fillText(opts.value, x, y - 8);
+    ctx.fillStyle = tk.text2; ctx.font = '500 11px Inter, system-ui'; ctx.fillText(opts.label, x, y + 14);
+    ctx.restore();
+  }
+};
+function codesFor(id, list) {
+  if (id === 'nc') return ['Open', 'Closed'].concat(CODE_ORDER.filter(c => c !== 'Open' && c !== 'Closed' && list.some(r => r.code === c)));
+  return CODE_ORDER.filter(c => list.some(r => r.code === c));
+}
+function drawCharts(id, list) {
+  applyChartDefaults();
+  const col = codeColors(); const tk = themeTokens(); const f = UI.f[id];
+  const codes = codesFor(id, list);
+  const by = countBy(list, r => r.code);
+  // 1) doughnut
+  const data = codes.map(c => by[c] || 0);
+  CH.status = new Chart($('#ch-status'), {
+    type: 'doughnut',
+    data: { labels: codes.map(c => CODE_LABEL[c]), datasets: [{ data, backgroundColor: codes.map(c => col[c]), borderColor: tk.surface, borderWidth: 2, hoverOffset: 6 }] },
+    options: {
+      maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false }, centerText: { value: fmtN(list.length), label: 'documents' },
+        tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + fmtN(c.raw) + ' (' + (pct(c.raw, list.length) ?? 0) + '%)' } } },
+      onClick: (e, els) => { if (els.length) { const c = codes[els[0].index]; f.code = f.code === c ? '' : c; f.page = 1; renderDataTabKeepScroll(id); } },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
+    },
+    plugins: [centerText]
+  });
+  $('#lg-status').innerHTML = codes.map((c, i) => '<button class="legend-btn w-full flex items-center gap-2 text-sm px-2 py-1 rounded-md hover:bg-slate-50 dark:hover:bg-ink-800" data-lg="' + c + '" aria-pressed="' + (f.code === c) + '">' +
+    '<i class="h-2.5 w-2.5 rounded-sm shrink-0" style="background:' + col[c] + '"></i><span class="flex-1 text-left">' + esc(CODE_LABEL[c]) + '</span><span class="num font-semibold">' + fmtN(data[i]) + '</span><span class="num text-xs text-slate-500 dark:text-slate-400 w-12 text-right">' + (pct(data[i], list.length) ?? 0) + '%</span></button>').join('');
+  document.querySelectorAll('[data-lg]').forEach(b => b.onclick = () => { const c = b.dataset.lg; f.code = f.code === c ? '' : c; f.page = 1; renderDataTabKeepScroll(id); });
+
+  // 2) discipline stacked horizontal bar (top 8 + Other)
+  const dCount = Object.entries(countBy(list, r => r.dc)).sort((a, b) => b[1] - a[1]);
+  const top = dCount.slice(0, 8).map(d => d[0]);
+  const labels = top.concat(dCount.length > 8 ? ['Other'] : []);
+  const discName = {}; list.forEach(r => discName[r.dc] = r.disc);
+  const bucket = r => top.includes(r.dc) ? r.dc : 'Other';
+  const ds = codes.map(c => ({
+    label: CODE_LABEL[c], code: c,
+    data: labels.map(l => list.filter(r => bucket(r) === l && r.code === c).length),
+    backgroundColor: col[c], borderColor: tk.surface, borderWidth: { right: 2 }, borderSkipped: false, barThickness: 16, borderRadius: 3
+  }));
+  $('#wrap-disc').style.height = Math.max(180, 36 + labels.length * 30) + 'px';
+  CH.disc = new Chart($('#ch-disc'), {
+    type: 'bar',
+    data: { labels, datasets: ds },
+    options: {
+      indexAxis: 'y', maintainAspectRatio: false,
+      scales: { x: { stacked: true, beginAtZero: true, grid: { color: tk.grid }, ticks: { precision: 0 } }, y: { stacked: true, grid: { display: false }, ticks: { font: { family: 'JetBrains Mono, monospace', size: 11 }, color: tk.text } } },
+      plugins: { legend: { display: false },
+        tooltip: { mode: 'index', intersect: false, filter: i => i.raw > 0,
+          callbacks: { title: it => { const l = it[0].label; return l === 'Other' ? 'Other disciplines' : (discName[l] || l); }, footer: it => 'Total: ' + it.reduce((a, b) => a + b.raw, 0) } } },
+      onClick: (e, els) => { if (els.length) { const l = labels[els[0].index]; if (l === 'Other') return; f.disc = f.disc === l ? '' : l; f.page = 1; renderDataTabKeepScroll(id); } },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
+    }
+  });
+
+  // 3) monthly trend (last 12 months)
+  const now = new Date(); const months = [];
+  for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push(d.getFullYear() + '-' + pad(d.getMonth() + 1)); }
+  const mc = countBy(list.filter(r => r.created), r => r.created.slice(0, 7));
+  CH.trend = new Chart($('#ch-trend'), {
+    type: 'bar',
+    data: { labels: months.map(m => MONTHS[+m.slice(5) - 1] + ' ' + m.slice(2, 4)), datasets: [{ label: id === 'nc' ? 'Raised' : 'Submitted', data: months.map(m => mc[m] || 0), backgroundColor: tk.brand, borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: 'start', maxBarThickness: 22 }] },
+    options: {
+      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: tk.grid } }, x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 6 } } },
+      plugins: { legend: { display: false }, tooltip: { intersect: false, mode: 'index' } }
+    }
+  });
+}
+
+/* ---------- Table ---------- */
+function filtered(id) {
+  const f = UI.f[id];
+  let rows = DATA.records.filter(r => r.cat === id && (f.showD || !r.isD));
+  if (f.type) rows = rows.filter(r => r.t === f.type);
+  if (f.disc) rows = rows.filter(r => r.dc === f.disc);
+  if (f.code) {
+    const c = f.code;
+    if (c === '__open') rows = rows.filter(r => !r.isD && (id === 'nc' ? isNcOpen(r) : isOpen(r)));
+    else if (c === '__approved') rows = rows.filter(r => r.code === 'A' || r.code === 'B');
+    else if (c === '__rft') rows = rows.filter(r => r.revN === 0 && (r.code === 'A' || r.code === 'B'));
+    else if (c === '__overdue') rows = rows.filter(r => !r.isD && ncState(r) === 'overdue');
+    else if (c === '__due7') rows = rows.filter(r => !r.isD && ncState(r) === 'due7');
+    else if (c === 'D') rows = rows.filter(r => r.isD);
+    else rows = rows.filter(r => r.code === c);
+  }
+  if (f.q) {
+    const terms = norm(f.q).split(' ').filter(Boolean);
+    rows = rows.filter(r => { const hay = (r.no + ' ' + r.title + ' ' + r.area + ' ' + r.tr + ' ' + r.disc + ' ' + r.rev).toLowerCase(); return terms.every(t => hay.includes(t)); });
+  }
+  const key = f.sort, dir = f.dir;
+  const val = r => key === 'due' ? (dueOf(r) || '') : key === 'days' ? (ncState(r) === 'closed' ? 99999 : daysBetween(todayISO(), dueOf(r)) ?? 99999) : (r[key] ?? '');
+  rows.sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * dir || (a.no < b.no ? -1 : 1); });
+  return rows;
+}
+const CODE_FILTERS = id => {
+  const base = id === 'nc'
+    ? [['__open', 'Open items'], ['__overdue', 'Overdue'], ['__due7', 'Due ≤ 7 days'], ['Closed', 'Closed']]
+    : [['__open', 'Open items (review + C)'], ['__approved', 'Approved (A + B)'], ['A', 'A – Approved'], ['B', 'B – Approved w/ Comments'], ['C', 'C – Revise & Resubmit'], ['E', 'E – Information Only'], ['Info', 'For Information'], ['Pending', 'Under Review'], ['__rft', 'RFT (A/B at R00)']];
+  return base.concat([['D', 'Code-D only (excluded)']]);
+};
+function renderTable(id) {
+  const f = UI.f[id];
+  const all = DATA.records.filter(r => r.cat === id);
+  const discs = Array.from(new Set(all.map(r => r.dc))).sort();
+  const types = Array.from(new Set(all.map(r => r.t))).sort();
+  const rows = filtered(id);
+  const pages = Math.max(1, Math.ceil(rows.length / f.size)); if (f.page > pages) f.page = pages;
+  const slice = rows.slice((f.page - 1) * f.size, f.page * f.size);
+  const isNC = id === 'nc';
+  const ed = canEdit();
+  const th = (k, label, cls) => '<th class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide bg-slate-50 dark:bg-ink-850 text-slate-500 dark:text-slate-400 whitespace-nowrap ' + (cls || '') + '">' +
+    (k ? '<button class="inline-flex items-center gap-1 hover:text-brand" data-sort="' + k + '">' + label + (f.sort === k ? (f.dir > 0 ? ' ▲' : ' ▼') : '') + '</button>' : label) + '</th>';
+  const head = isNC
+    ? th('no', 'Document No') + th('title', 'Title') + th('t', 'Type') + th('dc', 'Disc.') + th('code', 'Status') + th('created', 'Raised') + th('due', 'Due date') + th('days', 'Tracker') + th('', 'CA progress') + th('', 'Remarks') + th('', '', 'text-right')
+    : th('no', 'Document No') + th('title', 'Title') + th('rev', 'Rev') + th('t', 'Type') + th('dc', 'Disc.') + th('code', 'Code') + th('created', 'Created') + th('revDate', 'Rev. date') + th('', '', 'text-right');
+  const linkBtn = r => r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline" data-stop title="Open in Aconex">Open<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>' : '<span class="text-xs text-slate-400">no link</span>';
+  const titleCell = r => '<td class="px-3 py-2"><div class="truncate ' + (isNC ? 'max-w-[11rem] xl:max-w-[14rem]' : 'max-w-[18rem] xl:max-w-[26rem]') + '" title="' + esc(r.title) + '">' + esc(r.title.replace(/^KAFD00330 RO Plant:\s*/i, '')) + '</div></td>';
+  const body = slice.map(r => {
+    const rowCls = 'border-t border-slate-100 dark:border-ink-700 ' + (r.url ? 'is-link ' : '') + (r.isD ? 'is-d' : '');
+    const docCell = '<td class="docno px-3 py-2 font-mono text-xs whitespace-nowrap">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener noreferrer" class="hover:text-brand hover:underline" data-stop>' + esc(r.no) + '</a>' : esc(r.no)) + '</td>';
+    if (!isNC) {
+      return '<tr class="' + rowCls + '" data-url="' + esc(r.url) + '">' + docCell + titleCell(r) +
+        '<td class="px-3 py-2 font-mono text-xs">' + esc(r.rev) + '</td><td class="px-3 py-2 font-mono text-xs">' + esc(r.t) + '</td>' +
+        '<td class="px-3 py-2 font-mono text-xs" title="' + esc(r.disc) + '">' + esc(r.dc) + '</td><td class="px-3 py-2">' + codeBadge(r.code, r.isD) + '</td>' +
+        '<td class="px-3 py-2 text-xs num whitespace-nowrap">' + fmtDate(r.created) + '</td><td class="px-3 py-2 text-xs num whitespace-nowrap">' + fmtDate(r.revDate) + '</td>' +
+        '<td class="px-3 py-2 text-right">' + linkBtn(r) + '</td></tr>';
+    }
+    const o = NCR[r.no] || {}; const due = dueOf(r); const st = ncState(r);
+    const d = daysBetween(todayISO(), due);
+    let trk;
+    if (st === 'closed') { const dd = daysBetween(r.created, r.revDate); trk = '<span class="badge"><i style="background:' + codeColors().Closed + '"></i>Closed' + (dd != null ? ' · ' + dd + ' d' : '') + '</span>'; }
+    else if (st === 'overdue') trk = '<span class="badge !bg-red-50 !text-red-700 dark:!bg-red-950/50 dark:!text-red-300"><i style="background:#e34948"></i>' + Math.abs(d) + ' d overdue</span>';
+    else if (st === 'due7') trk = '<span class="badge !bg-amber-50 !text-amber-800 dark:!bg-amber-950/40 dark:!text-amber-200"><i style="background:#eda100"></i>' + (d === 0 ? 'Due today' : d + ' d left') + '</span>';
+    else trk = '<span class="badge"><i style="background:' + BRAND + '"></i>' + (d == null ? 'No date' : d + ' d left') + '</span>';
+    const edited = !!o.due;
+    return '<tr class="' + rowCls + '" data-url="' + esc(r.url) + '">' + docCell + titleCell(r) +
+      '<td class="px-3 py-2 font-mono text-xs">' + esc(r.t) + '</td><td class="px-3 py-2 font-mono text-xs" title="' + esc(r.disc) + '">' + esc(r.dc) + '</td>' +
+      '<td class="px-3 py-2">' + codeBadge(r.code, r.isD) + '</td><td class="px-3 py-2 text-xs num whitespace-nowrap">' + fmtDate(r.created) + '</td>' +
+      (!ed ? '<td class="px-3 py-2 whitespace-nowrap text-xs num' + (edited ? ' font-semibold' : '') + '" title="' + (edited ? 'Agreed due date' : 'Default: raised + ' + SETTINGS.closureDays + ' days') + '">' + fmtDate(due) + '</td>' :
+      '<td class="px-3 py-2 whitespace-nowrap" data-stop><div class="flex items-center gap-1"><input type="date" class="field !py-1 !px-1.5 text-xs num w-[8.5rem] ' + (edited ? '!border-brand font-semibold' : '') + '" value="' + esc(due || '') + '" data-due="' + esc(r.no) + '" aria-label="Due date for ' + esc(r.no) + '" title="' + (edited ? 'Edited due date' : 'Default: raised + ' + SETTINGS.closureDays + ' days') + '">' +
+      (edited ? '<button class="text-xs text-slate-400 hover:text-brand px-1" data-resetdue="' + esc(r.no) + '" title="Reset to default">↺</button>' : '') + '</div></td>') +
+      '<td class="px-3 py-2">' + trk + '</td>' +
+      '<td class="px-3 py-2" data-stop>' + (st === 'closed' ? '<span class="text-xs text-slate-400">—</span>' : !ed ? '<span class="text-xs">' + esc(o.ca || CA_STEPS[0]) + '</span>' : '<select class="field !py-1 !px-2 text-xs" data-ca="' + esc(r.no) + '" aria-label="Corrective action progress">' + CA_STEPS.map(s => '<option' + ((o.ca || CA_STEPS[0]) === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>') + '</td>' +
+      '<td class="px-3 py-2" data-stop>' + (!ed ? '<div class="text-xs max-w-[12rem] truncate" title="' + esc(o.note || '') + '">' + (o.note ? esc(o.note) : '<span class="text-slate-400">—</span>') + '</div>' : '<input type="text" class="field !py-1 !px-2 text-xs w-36" placeholder="Add note…" value="' + esc(o.note || '') + '" data-note="' + esc(r.no) + '" maxlength="200" aria-label="Remarks">') + '</td>' +
+      '<td class="px-3 py-2 text-right">' + linkBtn(r) + '</td></tr>';
+  }).join('');
+  const sel = (key, opts, allLabel) => '<select class="field" data-f="' + key + '"><option value="">' + allLabel + '</option>' + opts.map(([v, l]) => '<option value="' + esc(v) + '"' + (f[key] === v ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select>';
+  const discName = {}; all.forEach(r => discName[r.dc] = r.disc);
+  const anyFilter = f.q || f.type || f.disc || f.code;
+  $('#tblcard').innerHTML =
+    '<div class="p-4 border-b border-slate-200 dark:border-ink-700 space-y-3">' +
+    '<div class="flex items-center gap-2"><h3 class="font-semibold">Register</h3><span class="text-xs text-slate-500 dark:text-slate-400 num">' + fmtN(rows.length) + ' shown</span>' +
+    (isNC && !ed ? '<span class="ml-auto text-[11px] text-amber-700 dark:text-amber-300">Read-only — editors unlock <b>Data Upload &amp; Security</b> (PIN + GitHub token) to change due dates</span></div>' : '<span class="ml-auto text-[11px] text-slate-400 hidden sm:inline">Click a row or doc no. to open it in Aconex</span></div>') +
+    '<div class="flex flex-wrap items-center gap-2 [&>select]:w-[calc(50%-.25rem)] sm:[&>select]:w-auto sm:[&>select]:max-w-[15rem]">' +
+    '<div class="relative w-full sm:w-72"><svg class="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" class="field w-full !pl-8" placeholder="Search no., title, area, transmittal…" value="' + esc(f.q) + '"></div>' +
+    (types.length > 1 ? sel('type', types.map(x => [x, x + ' – ' + (TYPE_NAMES[x] || x)]), 'All types') : '') +
+    sel('disc', discs.map(x => [x, x + ' – ' + (discName[x] || '').replace(/^[A-Z]+\s*-\s*/, '')]), 'All disciplines') +
+    sel('code', CODE_FILTERS(id), isNC ? 'All statuses' : 'All approval codes') +
+    '<label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap"><input type="checkbox" class="chk !mt-0" id="showD"' + (f.showD ? ' checked' : '') + '>Show Code-D</label>' +
+    '<button class="btn btn-ghost !py-1.5 text-xs" id="csvBtn">Export CSV</button>' +
+    (anyFilter ? '<button class="btn btn-ghost !py-1.5 text-xs" id="clrBtn">Clear filters</button>' : '') +
+    '</div></div>' +
+    '<div class="overflow-auto scroll-thin max-h-[70vh]"><table class="tbl w-full text-sm"><thead><tr>' + head + '</tr></thead><tbody>' +
+    (body || '<tr><td colspan="11" class="px-3 py-10 text-center text-slate-500">No documents match the current filters.</td></tr>') + '</tbody></table></div>' +
+    '<div class="p-3 border-t border-slate-200 dark:border-ink-700 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">' +
+    '<span class="num">' + (rows.length ? ((f.page - 1) * f.size + 1) + '–' + Math.min(rows.length, f.page * f.size) + ' of ' + fmtN(rows.length) : '0 results') + (f.showD ? '' : ' · Code-D hidden') + '</span>' +
+    '<div class="flex items-center gap-2"><select class="field !py-1 text-xs" id="pgSize">' + [25, 50, 100, 250].map(n => '<option' + (n === f.size ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
+    '<button class="btn btn-ghost !py-1 !px-2 text-xs" id="pgPrev"' + (f.page <= 1 ? ' disabled' : '') + '>‹ Prev</button><span class="num">' + f.page + ' / ' + pages + '</span>' +
+    '<button class="btn btn-ghost !py-1 !px-2 text-xs" id="pgNext"' + (f.page >= pages ? ' disabled' : '') + '>Next ›</button></div></div>';
+
+  // bindings
+  let tmr; const q = $('#q');
+  q.oninput = () => { clearTimeout(tmr); tmr = setTimeout(() => { f.q = q.value; f.page = 1; const pos = q.selectionStart; renderTable(id); const nq = $('#q'); nq.focus(); try { nq.setSelectionRange(pos, pos); } catch (e) {} }, 180); };
+  document.querySelectorAll('#tblcard [data-f]').forEach(s => s.onchange = () => { f[s.dataset.f] = s.value; f.page = 1; renderDataTabKeepScroll(id); });
+  $('#showD').onchange = e => { f.showD = e.target.checked; f.page = 1; saveUI(); renderTable(id); };
+  $('#pgSize').onchange = e => { f.size = +e.target.value; f.page = 1; saveUI(); renderTable(id); };
+  $('#pgPrev').onclick = () => { f.page--; renderTable(id); };
+  $('#pgNext').onclick = () => { f.page++; renderTable(id); };
+  $('#csvBtn').onclick = () => exportCSV(id, rows);
+  if ($('#clrBtn')) $('#clrBtn').onclick = () => { Object.assign(f, { q: '', type: '', disc: '', code: '', page: 1 }); renderDataTabKeepScroll(id); };
+  document.querySelectorAll('#tblcard [data-sort]').forEach(b => b.onclick = () => { const k = b.dataset.sort; if (f.sort === k) f.dir = -f.dir; else { f.sort = k; f.dir = 1; } saveUI(); renderTable(id); });
+  document.querySelectorAll('#tblcard tbody tr[data-url]').forEach(tr => tr.onclick = e => {
+    if (e.target.closest('[data-stop], a, input, select, button')) return;
+    const u = safeUrl(tr.dataset.url); if (u) window.open(u, '_blank', 'noopener');
+  });
+  if (isNC) {
+    const saveNcr = (no, patch) => { NCR[no] = Object.assign({}, NCR[no], patch); Object.keys(NCR[no]).forEach(k => { if (!NCR[no][k]) delete NCR[no][k]; }); if (!Object.keys(NCR[no]).length) delete NCR[no]; saveCache(); if (isShared()) { PENDING_TRACK[no] = NCR[no] || null; queueTrackerPush(); } };
+    document.querySelectorAll('[data-due]').forEach(inp => inp.onchange = () => { saveNcr(inp.dataset.due, { due: inp.value || null }); renderDataTabKeepScroll('nc'); });
+    document.querySelectorAll('[data-resetdue]').forEach(b => b.onclick = () => { saveNcr(b.dataset.resetdue, { due: null }); renderDataTabKeepScroll('nc'); });
+    document.querySelectorAll('[data-ca]').forEach(s => s.onchange = () => { saveNcr(s.dataset.ca, { ca: s.value === CA_STEPS[0] ? null : s.value }); renderDataTabKeepScroll('nc'); });
+    document.querySelectorAll('[data-note]').forEach(inp => inp.onchange = () => { saveNcr(inp.dataset.note, { note: inp.value.trim() || null }); toast('Remark saved'); });
+  }
+}
+function exportCSV(id, rows) {
+  const isNC = id === 'nc';
+  const hdr = ['Document No', 'Title', 'Revision', 'Type', 'Discipline', 'Status', 'Review Status', 'Code', 'Date Created', 'Revision Date', 'Area / Zone', 'Transmittal In', 'Hyperlink'].concat(isNC ? ['Due Date', 'Tracker', 'CA Progress', 'Remarks'] : []);
+  const q = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = [hdr.map(q).join(',')].concat(rows.map(r => {
+    const base = [r.no, r.title, r.rev, r.t, r.disc, r.status, r.review || r.status, r.isD ? 'D (excluded)' : r.code, r.created, r.revDate, r.area, r.tr, r.url];
+    if (isNC) { const o = NCR[r.no] || {}; base.push(dueOf(r), ncState(r), o.ca || (isNcOpen(r) ? CA_STEPS[0] : ''), o.note || ''); }
+    return base.map(q).join(',');
+  }));
+  download('﻿' + lines.join('\r\n'), 'KAFD00330_' + id.toUpperCase() + '_' + todayISO() + '.csv', 'text/csv;charset=utf-8');
+}
+function download(content, name, type) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type })); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+/* =========================================================================
+   UPLOAD & SECURITY TAB
+   ========================================================================= */
+function renderUpload() {
+  const v = $('#view');
+  if (!UNLOCKED) {
+    v.innerHTML = '<div class="max-w-md mx-auto card p-8 mt-4">' +
+      '<div class="h-12 w-12 rounded-full bg-brand text-white flex items-center justify-center"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + ICONS.up + '</svg></div>' +
+      '<h2 class="mt-4 text-xl font-bold">Secure upload portal</h2><p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Enter the QA/QC PIN to import data or change settings.</p>' +
+      '<form id="pinForm" class="mt-5 space-y-3" autocomplete="off"><input id="pin" type="password" class="field w-full text-base tracking-widest" placeholder="PIN" aria-label="PIN" autofocus>' +
+      '<p id="pinErr" class="hidden text-sm text-red-600 dark:text-red-400">Incorrect PIN.</p>' +
+      '<button class="btn btn-primary w-full justify-center" type="submit">Unlock</button></form>' +
+      '<p class="mt-5 text-[11px] text-slate-400">The PIN is a client-side gate for this page. It stops casual edits but is not server-grade security — never publish confidential exports in a public repository.</p></div>';
+    $('#pinForm').onsubmit = async e => {
+      e.preventDefault();
+      if (await checkPin($('#pin').value)) { UNLOCKED = true; ssSet(SS_UNLOCK, '1'); toast('Unlocked'); render(); }
+      else { $('#pinErr').classList.remove('hidden'); $('#pin').select(); }
+    };
+    return;
+  }
+  const m = DATA && DATA.meta;
+  const allChecked = CHECKS.every(Boolean);
+  const checkItems = [
+    ['Latest export', 'The file is the latest Aconex “Search Export To Excel” — I have checked the <b>Generated On</b> date in the file header.'],
+    ['Required content', 'The export contains the minimum required document types / sheets: <span class="font-mono text-xs">IRE, MIR, PQD, MAR, MES, ITP, SOR, NCR</span> (a single “Docs” sheet or one sheet per type).'],
+    ['Exclusion rules', 'I understand rows with <b>RESERVED</b> in the title/description are removed, and <b>Code-D</b> records are excluded from all KPIs, counts, RFT and charts.']
+  ];
+  v.innerHTML =
+    '<div class="flex flex-wrap items-end justify-between gap-3 mb-5"><div><h2 class="text-xl font-bold">Data Upload &amp; Security</h2><p class="text-sm text-slate-500 dark:text-slate-400">Import Aconex exports · manage data, PIN and tracker settings</p></div>' +
+    '<button class="btn btn-ghost" id="lockBtn"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + ICONS.up + '</svg>Lock portal</button></div>' +
+    '<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">' +
+    '<div class="lg:col-span-2 space-y-5">' +
+    // step 1
+    '<div class="card p-5"><div class="flex items-center gap-2"><span class="h-6 w-6 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center">1</span><h3 class="font-semibold">Pre-upload confirmation</h3>' +
+    '<span class="ml-auto text-xs num ' + (allChecked ? 'text-brand font-semibold' : 'text-slate-500') + '">' + CHECKS.filter(Boolean).length + '/3 confirmed</span></div>' +
+    '<div class="mt-4 space-y-3">' + checkItems.map(([h, t], i) => '<label class="flex gap-3 p-3 rounded-lg border ' + (CHECKS[i] ? 'border-brand bg-brand-50/60 dark:bg-brand-900/20' : 'border-slate-200 dark:border-ink-700') + ' cursor-pointer"><input type="checkbox" class="chk" data-chk="' + i + '"' + (CHECKS[i] ? ' checked' : '') + '><span class="text-sm"><b class="block text-slate-800 dark:text-slate-100">' + h + '</b><span class="text-slate-600 dark:text-slate-300">' + t + '</span></span></label>').join('') + '</div></div>' +
+    // step 2
+    '<div class="card p-5 ' + (allChecked ? '' : 'opacity-60') + '"><div class="flex items-center gap-2"><span class="h-6 w-6 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center">2</span><h3 class="font-semibold">Upload Aconex export (.xlsx)</h3></div>' +
+    '<label id="dz" class="dropzone mt-4 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 dark:border-ink-700 rounded-xl p-8 text-center ' + (allChecked ? 'cursor-pointer' : 'cursor-not-allowed') + '">' +
+    '<svg class="h-8 w-8 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>' +
+    '<span class="text-sm font-semibold">' + (allChecked ? 'Drop the .xlsx here or click to browse' : 'Complete step 1 to enable upload') + '</span><span class="text-xs text-slate-500">Parsed in your browser — only the cleaned register is published to GitHub</span>' +
+    '<input id="file" type="file" accept=".xlsx,.xls,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="sr-only"' + (allChecked ? '' : ' disabled') + '></label>' +
+    '<div id="parseOut" class="mt-4"></div></div>' +
+    '</div>' +
+    // right column
+    '<div class="space-y-5">' +
+    ghCardHTML() +
+    '<div class="card p-5"><h3 class="font-semibold">Current dataset</h3>' + (m ?
+      '<dl class="mt-3 text-sm grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5"><dt class="text-slate-500">File</dt><dd class="truncate" title="' + esc(m.fileName) + '">' + esc(m.fileName) + '</dd>' +
+      '<dt class="text-slate-500">Generated</dt><dd>' + esc(m.generatedOn || '—') + '</dd>' +
+      '<dt class="text-slate-500">Status</dt><dd>' + (m.localOnly ? '<span class="text-amber-600 dark:text-amber-400 font-semibold">Local preview — not published</span>' : m.rev ? '<span class="text-brand font-semibold">Published</span> ' + esc(fmtStamp(m.publishedAt)) + (m.publishedBy ? ' · ' + esc(m.publishedBy) : '') : '<span class="text-amber-600 dark:text-amber-400 font-semibold">This browser only</span>') + '</dd>' +
+      '<dt class="text-slate-500">Valid</dt><dd class="num">' + fmtN(m.valid) + '</dd><dt class="text-slate-500">RESERVED</dt><dd class="num">' + fmtN(m.reservedCount) + ' removed</dd><dt class="text-slate-500">Code-D</dt><dd class="num">' + fmtN(m.codeDCount) + ' excluded</dd>' +
+      '<dt class="text-slate-500">Tracker</dt><dd class="num">' + Object.keys(NCR).length + ' SOR/NCR entries</dd></dl>' : '<p class="text-sm text-slate-500 mt-2">No dataset loaded.</p>') +
+    (m && !m.rev ? '<button class="btn btn-primary text-xs mt-4" id="pubCur"' + (ghReady() ? '' : ' disabled title="Set up GitHub publishing first"') + '>Publish this dataset to everyone</button>' : '') +
+    (m && m.localOnly && REMOTE_STATE === 'ok' ? '<button class="btn btn-ghost text-xs mt-4 ml-1" id="dropLocal">Discard preview &amp; load shared data</button>' : '') +
+    '<div class="mt-4 flex flex-wrap gap-2"><button class="btn btn-ghost text-xs" id="bkBtn"' + (m ? '' : ' disabled') + '>Download backup (.json)</button>' +
+    '<label class="btn btn-ghost text-xs cursor-pointer">Restore backup<input type="file" id="rsFile" accept=".json,application/json" class="sr-only"></label>' +
+    '<button class="btn btn-danger text-xs" id="clrData"' + (m ? '' : ' disabled') + '>Clear local cache</button></div></div>' +
+    '<div class="card p-5"><h3 class="font-semibold">Tracker settings</h3>' + (isShared() ? '<p class="text-[11px] text-slate-500 mt-1">Shared — saving publishes to all users.</p>' : '') + '<form id="setForm" class="mt-3 space-y-3 text-sm">' +
+    '<label class="block"><span class="text-slate-600 dark:text-slate-300">Default SOR/NCR closure period (days)</span><input type="number" min="1" max="365" class="field w-full mt-1 num" id="setDays" value="' + SETTINGS.closureDays + '"></label>' +
+    '<label class="block"><span class="text-slate-600 dark:text-slate-300">RFT target (%)</span><input type="number" min="1" max="100" class="field w-full mt-1 num" id="setRft" value="' + SETTINGS.rftTarget + '"></label>' +
+    '<button class="btn btn-primary text-xs" type="submit"' + (isShared() && !ghReady() ? ' disabled title="Set up GitHub publishing first"' : '') + '>Save settings</button></form></div>' +
+    '<div class="card p-5"><h3 class="font-semibold">Change PIN</h3><form id="pinChg" class="mt-3 space-y-2 text-sm" autocomplete="off">' +
+    '<input type="password" class="field w-full" id="pinOld" placeholder="Current PIN" aria-label="Current PIN"><input type="password" class="field w-full" id="pinNew" placeholder="New PIN (min. 4 characters)" aria-label="New PIN"><input type="password" class="field w-full" id="pinNew2" placeholder="Confirm new PIN" aria-label="Confirm new PIN">' +
+    '<p id="pinChgMsg" class="text-xs hidden"></p><button class="btn btn-primary text-xs" type="submit">Update PIN</button></form>' +
+    '<p class="mt-3 text-[11px] text-slate-400">The PIN is stored as a hash in this browser only. Publishing rights come from the GitHub token, not the PIN.</p></div>' +
+    '</div></div>';
+
+  $('#lockBtn').onclick = () => { UNLOCKED = false; ssSet(SS_UNLOCK, null); render(); };
+  document.querySelectorAll('[data-chk]').forEach(c => c.onchange = () => { CHECKS[+c.dataset.chk] = c.checked; const y = window.scrollY; renderUpload(); window.scrollTo(0, y); });
+  const fileInp = $('#file'); const dz = $('#dz');
+  fileInp.onchange = () => fileInp.files[0] && handleFile(fileInp.files[0]);
+  if (allChecked) {
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add('is-over'); };
+    dz.ondragleave = () => dz.classList.remove('is-over');
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove('is-over'); const f = e.dataTransfer.files[0]; if (f) handleFile(f); };
+  } else { dz.ondrop = e => { e.preventDefault(); toast('Complete the pre-upload confirmation first.', 'warn'); }; dz.ondragover = e => e.preventDefault(); }
+  if (PENDING_IMPORT) showPreview(PENDING_IMPORT);
+  bindGhCard();
+
+  if ($('#pubCur')) $('#pubCur').onclick = async e => {
+    e.target.disabled = true; e.target.textContent = 'Publishing…';
+    try { await publishDataset(DATA); toast('Published — everyone sees it after the GitHub Pages refresh (about 1–2 min).'); }
+    catch (err) { toast('Publish failed: ' + err.message, 'error'); }
+    render();
+  };
+  if ($('#dropLocal')) $('#dropLocal').onclick = async () => { DATA.meta.localOnly = false; DATA.meta.rev = 'x'; await syncFromRemote({ force: true }); render(); };
+  $('#bkBtn').onclick = () => download(JSON.stringify(packFile(DATA, NCR, DATA.meta)), 'kafd-qaqc-backup-' + todayISO() + '.json', 'application/json');
+  $('#rsFile').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const u = unpackFile(JSON.parse(await f.text())); if (!u) throw new Error('not a tracker backup');
+      u.data.meta = Object.assign({}, u.data.meta, { localOnly: true }); delete u.data.meta.rev;
+      applyUnpacked(u); toast('Backup loaded as a local preview — publish it to share.'); render();
+    } catch (err) { toast('Could not restore backup: ' + err.message, 'error'); }
+  };
+  let armed = false;
+  $('#clrData').onclick = e => {
+    if (!armed) { armed = true; e.target.textContent = 'Click again to confirm'; setTimeout(() => { armed = false; if (e.target.isConnected) e.target.textContent = 'Clear local cache'; }, 4000); return; }
+    DATA = null; NCR = {}; PENDING_TRACK = {}; try { localStorage.removeItem(LS.data); localStorage.removeItem(LS.ncr); } catch (er) {}
+    toast('Local cache cleared'); render(); syncFromRemote({ force: true });
+  };
+  $('#setForm').onsubmit = async e => {
+    e.preventDefault();
+    const d = parseInt($('#setDays').value, 10), r = parseInt($('#setRft').value, 10);
+    if (!(d >= 1 && d <= 365) || !(r >= 1 && r <= 100)) return toast('Enter valid numbers (days 1–365, target 1–100).', 'warn');
+    if (isShared()) {
+      try {
+        setSync('saving', 'Saving settings…');
+        const j = await remoteUpdate(cur => { const x = asPacked(cur); if (!x) throw new Error('nothing published yet'); x.settings = { closureDays: d, rftTarget: r }; return x; }, 'Tracker settings: closure ' + d + ' d, RFT target ' + r + '%');
+        applyUnpacked(unpackFile(j)); setSync('ok'); toast('Settings published');
+      } catch (err) { setSync('error', err.message); return toast('Could not publish settings: ' + err.message, 'error'); }
+    } else { SETTINGS.closureDays = d; SETTINGS.rftTarget = r; lsSet(LS.settings, SETTINGS); if (DATA) saveCache(); toast('Settings saved'); }
+    renderNav();
+  };
+  $('#pinChg').onsubmit = async e => {
+    e.preventDefault(); const msg = $('#pinChgMsg'); msg.classList.remove('hidden');
+    const o = $('#pinOld').value, n = $('#pinNew').value, n2 = $('#pinNew2').value;
+    const fail = t => { msg.className = 'text-xs text-red-600 dark:text-red-400'; msg.textContent = t; };
+    if (!(await checkPin(o))) return fail('Current PIN is incorrect.');
+    if (n.length < 4) return fail('New PIN must be at least 4 characters.');
+    if (n !== n2) return fail('New PINs do not match.');
+    SETTINGS.pinHash = await hashPin(n); lsSet(LS.settings, SETTINGS);
+    msg.className = 'text-xs text-brand'; msg.textContent = 'PIN updated.'; e.target.reset();
+  };
+}
+
+/* ---------- GitHub publishing card ---------- */
+function ghCardHTML() {
+  const ok = ghReady();
+  const f = (id, label, val, ph, type) => '<label class="block"><span class="text-xs text-slate-600 dark:text-slate-300">' + label + '</span><input id="' + id + '" type="' + (type || 'text') + '" class="field w-full mt-1" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '" autocomplete="off" spellcheck="false"></label>';
+  return '<div class="card p-5 border-brand/50"><div class="flex items-center gap-2"><h3 class="font-semibold">Shared publishing (GitHub)</h3>' +
+    '<span class="ml-auto badge">' + (ok ? '<i style="background:' + BRAND + '"></i>Ready' : '<i style="background:#eda100"></i>Not set up') + '</span></div>' +
+    '<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Uploads are committed to <span class="font-mono">data.json</span> in your GitHub repository, so every visitor of the site sees the same data and the same SOR/NCR due dates.</p>' +
+    '<form id="ghForm" class="mt-3 space-y-2.5 text-sm" autocomplete="off">' +
+    '<div class="grid grid-cols-2 gap-2">' + f('ghOwner', 'Owner (user / org)', GH.owner, 'e.g. sbcm-qaqc') + f('ghRepo', 'Repository', GH.repo, 'e.g. kafd-qaqc') + '</div>' +
+    '<div class="grid grid-cols-2 gap-2">' + f('ghBranch', 'Branch', GH.branch, 'main') + f('ghPath', 'Data file path', GH.path, 'data.json') + '</div>' +
+    f('ghName', 'Your name (shown as publisher)', GH.name, 'e.g. M. Asim') +
+    '<label class="block"><span class="text-xs text-slate-600 dark:text-slate-300">Fine-grained access token</span><input id="ghToken" type="password" class="field w-full mt-1 font-mono" value="" placeholder="' + (GH.token ? '•••••••• saved in this browser — leave blank to keep' : 'github_pat_…') + '" autocomplete="off"></label>' +
+    '<p id="ghMsg" class="text-xs hidden"></p>' +
+    '<div class="flex flex-wrap gap-2"><button class="btn btn-primary text-xs" type="submit">Save &amp; test connection</button>' + (GH.token ? '<button class="btn btn-ghost text-xs" type="button" id="ghForget">Remove token</button>' : '') + '</div></form>' +
+    '<details class="mt-3 text-[11px] text-slate-500 dark:text-slate-400"><summary class="cursor-pointer font-semibold">How to create the token (one-time, per uploader)</summary>' +
+    '<ol class="list-decimal ml-4 mt-1 space-y-0.5"><li>GitHub → Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → Generate new token.</li>' +
+    '<li>Repository access: <b>Only select repositories</b> → this dashboard repo.</li><li>Repository permissions: <b>Contents → Read and write</b> (nothing else).</li>' +
+    '<li>Set an expiry (e.g. 90 days), generate, paste it here.</li></ol>' +
+    '<p class="mt-1">The token stays in this browser\'s storage only — it is never written to the repository. Viewers need no token.</p></details></div>';
+}
+function bindGhCard() {
+  const form = $('#ghForm'); if (!form) return;
+  const msg = $('#ghMsg');
+  const show = (t, bad) => { msg.classList.remove('hidden'); msg.className = 'text-xs ' + (bad ? 'text-red-600 dark:text-red-400' : 'text-brand'); msg.textContent = t; };
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const tok = $('#ghToken').value.trim();
+    GH = Object.assign({}, GH, { owner: $('#ghOwner').value.trim(), repo: $('#ghRepo').value.trim(), branch: $('#ghBranch').value.trim() || 'main', path: ($('#ghPath').value.trim() || 'data.json').replace(/^\/+/, ''), name: $('#ghName').value.trim() });
+    if (tok) GH.token = tok;
+    lsSet(LS.gh, GH);
+    if (!ghReady()) return show('Owner, repository and token are required.', true);
+    show('Testing…');
+    try {
+      const res = await ghFetch(ghApi(''));
+      if (!res.ok) throw new Error(await ghErr(res));
+      const j = await res.json();
+      if (j.permissions && j.permissions.push === false) throw new Error('token can read but not write this repository — grant Contents: Read and write');
+      const cur = await ghGetFile();
+      const okMsg = 'Connected to ' + j.full_name + ' (' + (j.private ? 'private' : 'public') + ' repo). ' + (cur ? 'Shared data.json found.' : 'No data.json yet — your next upload will create it.');
+      await syncFromRemote({ force: true });
+      const y = window.scrollY; renderNav(); renderUpload(); window.scrollTo(0, y);
+      const m2 = $('#ghMsg'); if (m2) { m2.className = 'text-xs text-brand'; m2.textContent = okMsg; }
+      toast(okMsg);
+    } catch (err) { show('Connection failed: ' + err.message, true); }
+  };
+  if ($('#ghForget')) $('#ghForget').onclick = () => { GH.token = ''; lsSet(LS.gh, GH); toast('Token removed from this browser'); render(); };
+}
+
+async function handleFile(file) {
+  if (!CHECKS.every(Boolean)) return toast('Complete the pre-upload confirmation first.', 'warn');
+  if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) return toast('Please choose an Excel file (.xlsx).', 'warn');
+  if (typeof XLSX === 'undefined') return toast('SheetJS failed to load (check internet / CDN access).', 'error');
+  $('#parseOut').innerHTML = '<p class="text-sm text-slate-500">Parsing ' + esc(file.name) + '…</p>';
+  try {
+    const buf = await file.arrayBuffer();
+    PENDING_IMPORT = parseWorkbook(buf, file.name);
+    showPreview(PENDING_IMPORT);
+  } catch (err) {
+    console.error(err); PENDING_IMPORT = null;
+    $('#parseOut').innerHTML = '<div class="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 text-sm text-red-700 dark:text-red-300">Could not read this file: ' + esc(err.message) + '</div>';
+  }
+}
+function showPreview(p) {
+  const r = p.report;
+  const missingTypes = REQUIRED.filter(t => !r.types[t]);
+  const cur = DATA ? new Set(DATA.records.map(x => x.no)) : null;
+  const newDocs = cur ? p.records.filter(x => !cur.has(x.no)).length : p.records.length;
+  const stat = (l, v, tone) => '<div class="rounded-lg border border-slate-200 dark:border-ink-700 p-3"><div class="text-[11px] uppercase tracking-wide text-slate-500">' + l + '</div><div class="text-xl font-bold num ' + (tone || '') + '">' + v + '</div></div>';
+  const typeRows = REQUIRED.concat(Object.keys(r.types).filter(t => !REQUIRED.includes(t)).sort()).map(t => {
+    const n = r.types[t] || 0; const req = REQUIRED.includes(t);
+    return '<tr class="border-t border-slate-100 dark:border-ink-700"><td class="py-1.5 pr-3 font-mono text-xs">' + t + '</td><td class="py-1.5 pr-3">' + esc(TYPE_NAMES[t] || '—') + (req ? '' : ' <span class="text-[10px] text-slate-400">→ Others</span>') + '</td><td class="py-1.5 pr-3 num text-right">' + n + '</td><td class="py-1.5 num text-right text-slate-500">' + (r.validTypes[t] || 0) + '</td><td class="py-1.5 pl-3 text-right">' +
+      (n ? '<span class="text-brand font-semibold">✓</span>' : req ? '<span class="text-red-600 dark:text-red-400 font-semibold">✗ missing</span>' : '') + '</td></tr>';
+  }).join('');
+  const ready = ghReady();
+  $('#parseOut').innerHTML =
+    '<div class="rounded-xl border border-brand/40 p-4 space-y-4">' +
+    '<div class="flex items-center gap-2"><span class="h-6 w-6 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center">3</span><h4 class="font-semibold">Review &amp; publish</h4><span class="ml-auto text-xs text-slate-500 truncate">' + esc(r.fileName) + '</span></div>' +
+    (r.generatedOn ? '<p class="text-xs text-slate-500">Generated on <b>' + esc(r.generatedOn) + '</b>' + (r.filterText ? ' · Aconex filter: ' + esc(r.filterText) : '') + '</p>' : '<p class="text-xs text-amber-600">“Generated On” not found — confirm this is the latest export.</p>') +
+    '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">' + stat('Rows read', fmtN(r.read)) + stat('RESERVED removed', fmtN(r.reserved.length), r.reserved.length ? 'text-amber-600' : '') + stat('Code-D flagged', fmtN(r.codeD)) + stat('Valid records', fmtN(r.valid), 'text-brand') + '</div>' +
+    (r.reserved.length ? '<details class="text-xs"><summary class="cursor-pointer text-slate-600 dark:text-slate-300">Removed RESERVED rows (' + r.reserved.length + ')</summary><div class="mt-1 font-mono text-slate-500 break-all">' + r.reserved.map(esc).join(', ') + '</div></details>' : '') +
+    '<div class="text-xs text-slate-500">Sheets: ' + r.sheets.map(s => esc(s.name) + ' (' + s.rows + (s.note ? ' — ' + esc(s.note) : '') + ')').join(' · ') + (r.dupes ? ' · ' + r.dupes + ' duplicate doc nos merged (latest revision kept)' : '') + (cur ? ' · ' + fmtN(newDocs) + ' new vs current dataset' : '') + '</div>' +
+    (missingTypes.length ? '<div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-sm text-amber-800 dark:text-amber-200">Missing required type(s): <b class="font-mono">' + missingTypes.join(', ') + '</b>. You can still publish, but those tabs will be incomplete.</div>' : '<div class="p-3 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-sm text-brand-800 dark:text-brand-200">All 8 required document types found.</div>') +
+    (r.missing.length ? '<div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-sm text-amber-800 dark:text-amber-200">Columns not found: <b>' + r.missing.join(', ') + '</b> — related fields will be blank.</div>' : '') +
+    (r.noUrl ? '<p class="text-xs text-slate-500">' + r.noUrl + ' record(s) have no Aconex hyperlink.</p>' : '') +
+    '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-[11px] uppercase tracking-wide text-slate-500"><th class="text-left py-1">Code</th><th class="text-left">Type</th><th class="text-right">Records</th><th class="text-right">Valid</th><th></th></tr></thead><tbody>' + typeRows + '</tbody></table></div>' +
+    (ready ? '' : '<div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-sm text-amber-800 dark:text-amber-200">GitHub publishing is not set up in this browser, so this upload would stay on this computer only. Fill in <b>Shared publishing (GitHub)</b> to share it with everyone.</div>') +
+    '<div class="flex flex-wrap gap-2 pt-1">' +
+    (ready ? '<button class="btn btn-primary" id="publishBtn"' + (r.total ? '' : ' disabled') + '>Publish to all users</button><button class="btn btn-ghost" id="localBtn"' + (r.total ? '' : ' disabled') + '>Preview locally only</button>'
+           : '<button class="btn btn-primary" id="localBtn"' + (r.total ? '' : ' disabled') + '>Load on this computer only</button>') +
+    '<button class="btn btn-ghost" id="discardBtn">Discard</button>' +
+    '<span class="text-xs text-slate-500 self-center">Replaces the current dataset. SOR/NCR due dates, CA progress and remarks are kept.</span></div></div>';
+  bindImportButtons();
+}
+function importedData(p) {
+  const r = p.report;
+  return { meta: { fileName: r.fileName, generatedOn: r.generatedOn, filterText: r.filterText, importedAt: new Date().toISOString(), rowsRead: r.read, total: r.total, valid: r.valid, reservedCount: r.reserved.length, codeDCount: r.codeD, sheets: r.sheets }, records: p.records };
+}
+function bindImportButtons() {
+  const pb = $('#publishBtn'), lb = $('#localBtn'), d = $('#discardBtn');
+  if (pb) pb.onclick = async () => {
+    const p = PENDING_IMPORT; if (!p) return;
+    pb.disabled = true; pb.textContent = 'Publishing…'; if (lb) lb.disabled = true;
+    const data = importedData(p);
+    try {
+      await publishDataset(data);
+      PENDING_IMPORT = null; CHECKS = [false, false, false];
+      toast('Published ' + fmtN(data.meta.valid) + ' valid records — everyone sees it after the GitHub Pages refresh (about 1–2 min).');
+      go('pqd');
+    } catch (err) {
+      setSync('error', err.message);
+      toast('Publish failed: ' + err.message, 'error');
+      pb.disabled = false; pb.textContent = 'Publish to all users'; if (lb) lb.disabled = false;
+    }
+  };
+  if (lb) lb.onclick = () => {
+    const p = PENDING_IMPORT; if (!p) return;
+    const data = importedData(p); data.meta.localOnly = true;
+    DATA = data; saveCache();
+    PENDING_IMPORT = null; CHECKS = [false, false, false];
+    toast('Loaded on this computer only — not visible to others until published.', 'warn');
+    go('pqd');
+  };
+  if (d) d.onclick = () => { PENDING_IMPORT = null; $('#parseOut').innerHTML = ''; const fi = $('#file'); if (fi) fi.value = ''; };
+}
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+$('#themeBtn').onclick = () => {
+  const dark = !isDark();
+  document.documentElement.classList.toggle('dark', dark);
+  try { localStorage.setItem(LS.theme, dark ? 'dark' : 'light'); } catch (e) {}
+  render();
+};
+$('#syncBtn').onclick = async () => {
+  const b = $('#syncBtn'); b.classList.add('animate-spin');
+  if (Object.keys(PENDING_TRACK).length && ghReady()) { await pushTracker(); b.classList.remove('animate-spin'); return; }
+  const changed = await syncFromRemote({ force: true });
+  b.classList.remove('animate-spin');
+  if (!changed && REMOTE_STATE !== 'error') toast(REMOTE_STATE === 'none' ? 'Nothing has been published yet.' : 'You have the latest published data.');
+};
+function boot() {
+  if (typeof Chart === 'undefined') {
+    $('#view').innerHTML = '<div class="card p-6 text-sm">Chart.js could not be loaded from the CDN. Check your internet connection and reload.</div>';
+    return;
+  }
+  loadCache();
+  render();
+  syncFromRemote();
+  setInterval(() => { if (document.visibilityState === 'visible') syncFromRemote(); }, 120000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncFromRemote(); });
+}
+boot();
+</script>
+</body>
+</html>
